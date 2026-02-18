@@ -1,0 +1,10 @@
+{
+  "name": "abot",
+  "displayName": "Abot",
+  "bot": true,
+  "botTitle": "Anonymous Messaging Bot",
+  "scopes": {
+    "botScopes": ["messages:read", "messages:write", "channels:read", "channels:list", "channels:write", "users:list", "reaction:read"],
+    "userScopes": []
+  }
+}

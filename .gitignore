@@ -1,0 +1,12 @@
+node_modules/
+dist/
+tokens.json
+.pumbleapprc
+.pumble-app-manifest.json
+.env
+.DS_Store
+conversations.db
+conversations.db-wal
+conversations.db-shm
+package-lock.json
+CLAUDE.md
