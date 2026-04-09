@@ -1,20 +1,33 @@
 {
-  "name": "abot",
-  "version": "1.0.0",
-  "description": "Anonymous messaging for Pumble",
+  "name": "anon",
+  "version": "0.1.0",
+  "description": "Pumble anonymous messaging bot",
   "main": "dist/main.js",
-  "scripts": {
-    "start": "tsc && node dist/main.js",
-    "dev": "pumble-cli"
+  "engines": {
+    "node": ">=20.11"
   },
-  "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^25.2.3",
-    "pumble-cli": "^0.0.29",
-    "typescript": "^5.3.3"
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "compile": "tsc -p tsconfig.json",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/main.js",
+    "dev": "pumble-cli",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",
-    "pumble-sdk": "0.0.29"
+    "pino": "^9.5.0",
+    "pumble-sdk": "1.1.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.17.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "pino-pretty": "^11.3.0",
+    "pumble-cli": "1.1.1",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   }
 }
