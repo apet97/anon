@@ -340,7 +340,7 @@ const addon: App = {
                   element: {
                     type: "plain_text_input",
                     onAction: "reply_text",
-                    multiline: true,
+                    line_mode: "multiline",
                     placeholder: { type: "plain_text", text: "Type your anonymous reply..." },
                   },
                 },
