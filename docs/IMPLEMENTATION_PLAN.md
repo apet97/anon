@@ -1,8 +1,14 @@
-# Abot Implementation Plan
+# Anon Implementation Plan
 
-**Status:** ready for execution after doc review  
-**Date:** 2026-04-08  
-**Constraint:** do not refactor inside the current nested working folder; move execution to a standalone repo first
+**Status:** Phase 0 – 7 executed on 2026-04-09 in the standalone repo
+(`apet97/anon`, branch `refactor/enterprise`). Phase 7 is the final
+verification sweep; the only remaining work is the manual rollout
+checklist documented at the end of this file.
+
+**Date:** 2026-04-08 (original), 2026-04-09 (execution)
+
+**Constraint:** do not refactor inside the nested abot/ working folder;
+execution lives in the standalone repo.
 
 ## Overview
 
@@ -16,7 +22,7 @@ This plan converts Abot from a prototype into a production-ready Pumble app in c
 6. add durable state, security hardening, and ops support
 7. verify production workflows before rollout
 
-## Phase 0: Standalone Repo Extraction and Secret Rotation
+## Phase 0: Standalone Repo Extraction and Secret Rotation — DONE 2026-04-09
 
 ### Goal
 
@@ -43,7 +49,7 @@ Stop working inside the nested parent repo and create a clean standalone Abot re
 - keep the current working folder unchanged
 - do not push any extracted history
 
-## Phase 1: Runtime and Tooling Alignment
+## Phase 1: Runtime and Tooling Alignment — DONE 2026-04-09
 
 ### Goal
 
@@ -79,7 +85,7 @@ Bring the app onto the current published Pumble packages and production-compatib
 - revert dependency and script commits
 - restore prior package versions
 
-## Phase 2: Test Harness and Baseline Characterization
+## Phase 2: Test Harness and Baseline Characterization — DONE 2026-04-09
 
 ### Goal
 
@@ -115,7 +121,7 @@ Capture the current behavior with automated tests before major restructuring.
 - remove test harness and fixtures
 - revert tests independently of runtime code
 
-## Phase 3: Module Split Without Behavioral Change
+## Phase 3: Module Split Without Behavioral Change — DONE 2026-04-09
 
 ### Goal
 
@@ -152,7 +158,7 @@ Break the single-file implementation into stable modules while preserving behavi
 - revert the most recent extraction commit group
 - keep tests to catch drift during retry
 
-## Phase 4: Durable State and Data Migrations
+## Phase 4: Durable State and Data Migrations — DONE 2026-04-09
 
 ### Goal
 
@@ -185,7 +191,7 @@ Eliminate restart-sensitive reply state and formalize schema evolution.
 - revert migration and persistence commits together
 - restore in-memory reply state temporarily only if needed to recover service
 
-## Phase 5: Security Hardening
+## Phase 5: Security Hardening — DONE 2026-04-09
 
 ### Goal
 
@@ -217,7 +223,7 @@ Move from “works in dev” to production-safe request handling and privacy pos
 - revert security-specific commits without removing the modular refactor
 - keep production deployment disabled until hardening is restored
 
-## Phase 6: Operations and Deployment
+## Phase 6: Operations and Deployment — DONE 2026-04-09
 
 ### Goal
 
@@ -249,7 +255,7 @@ Make the app deployable and operable as a service.
 - revert deployment artifacts independently
 - continue local verification without container rollout
 
-## Phase 7: Report Flow Validation and Rollout
+## Phase 7: Report Flow Validation and Rollout — PENDING (manual)
 
 ### Goal
 
@@ -317,3 +323,95 @@ The first non-documentation execution session should end with:
 - package/tooling upgrade branch opened
 
 It should **not** try to do the entire production refactor in one step.
+
+---
+
+## 2026-04-09 Execution Summary
+
+All phases 0–6 were executed end-to-end in a single session on branch
+`refactor/enterprise` of `apet97/anon`. Phase 7 is the manual rollout
+step and is out of scope for automated execution.
+
+### What shipped
+
+- Clean standalone clone of `apet97/anon` with the nested prototype
+  imported and gitignore tightened (secrets, databases, reference
+  mirror all excluded; `package-lock.json` now tracked).
+- `pumble-sdk` and `pumble-cli` upgraded from `0.0.29` to `1.1.1`.
+  The SDK type system surfaced the latent `multiline: true` bug on
+  the reply modal textarea; fixed to `line_mode: "multiline"`.
+- `src/config.ts` with fail-fast env validation for
+  `PUMBLE_APP_ID` / `PUMBLE_APP_KEY` / `PUMBLE_APP_CLIENT_SECRET` /
+  `PUMBLE_APP_SIGNING_SECRET`, plus typed defaults for
+  `DATABASE_PATH` / `LOG_LEVEL` / `PORT` / `NODE_ENV`. Returns a
+  frozen object.
+- `SECURITY.md` with the secrets policy, rotation checklist for the
+  known-compromised dev workspace credentials, and incident response.
+- Modular source layout matching §4 of the SPEC:
+  `src/{main,app,config,logger,deps}.ts` plus `commands/`,
+  `interactions/`, `views/`, `events/`, `services/`, `db/`,
+  `tokens/`, and `http/`.
+- Forward-only migration runner (`src/db/migrations/migrator.ts`)
+  with four versioned migrations: baseline schema, `pending_replies`,
+  `audit_log`, `tokens`. Migrations run on every boot and the runner
+  is idempotent (covered by a dedicated test).
+- SQLite-backed `pending_replies` store replaces the in-memory Map.
+  The modal flow now survives process restarts — proven by an
+  integration test that opens one database, writes state, closes
+  it, reopens the same file, and reads the state back.
+- `SqliteCredentialsStore` implements the full 7-method
+  `CredentialsStore` contract (bot+user saves in a single
+  transaction, workspace/user-scoped deletes, bot row keyed by an
+  empty-string sentinel).
+- Lifecycle handlers (`APP_UNAUTHORIZED`, `APP_UNINSTALLED`) purge
+  tokens and pending reply rows and write an audit entry.
+- Structured pino logging with a redaction list covering every
+  token/secret property name plus `messageText` / `replyText`.
+- `audit_log` entries are written for `SEND`, `REPLY`, `REPORT`,
+  `BLOCK`, `UNBLOCK`, `APP_UNAUTHORIZED`, `APP_UNINSTALLED`, and
+  `STARTUP`. Raw message bodies never appear in audit rows or log
+  lines (tests assert this explicitly).
+- `GET /health` and `GET /ready` endpoints on the SDK's Express
+  server via `onServerConfiguring`. Each runs a `SELECT 1` probe
+  and returns 503 if the DB is unreachable.
+- Two-stage `Dockerfile` using `node:24.14-alpine`, tini as PID 1,
+  `node` user, with a production-only `node_modules` and the
+  `.sql` migrations copied into `dist/db/migrations`.
+- GitHub Actions CI (`.github/workflows/ci.yml`) running a
+  Node 20/22 matrix through `npm ci`, type-check, test, build, and
+  a secret-file tracking check, plus a docker build smoke job.
+
+### Test status
+
+- **67 vitest tests** across 16 files:
+  `config` (6), `parseRecipient` (6), `rateLimit` (8), `anonMessage` (1),
+  `reportChannel` (3), `/anon` command (8), `/anon-block` + `/anon-unblock`
+  (2), `reply_anon` (1), `report_anon` (4), `anon_reply_modal` (4),
+  `migrator` (5), `sqliteCredentialsStore` (6), SQLite-backed
+  `pendingReplies` with restart-survival (4), lifecycle events (3),
+  `logger` redaction (3), `audit_log` coverage (3).
+- `npm run type-check` passes (both `tsconfig.json` and
+  `tsconfig.test.json`).
+- `npm run build` passes and copies the `.sql` migrations into `dist/`.
+
+### Manual rollout checklist (what still needs a human)
+
+1. **Rotate the compromised credentials** per `SECURITY.md`. The
+   dev workspace `64ad1305c701cc5be7c26fe4` and the
+   `69950af22720c2992bab57f7` app both had `tokens.json` and
+   `.pumbleapprc` on disk.
+2. **Populate production secrets** as env vars in your runtime.
+3. **Update trigger URLs** in Pumble:
+   `npx pumble-cli pre-publish --host https://<prod-host>`
+4. **Reinstall the app** into the target workspace to obtain fresh
+   bot and user tokens.
+5. **Real-workspace verification** of the flows that cannot be
+   exercised offline:
+   - `/anon @user hello` end-to-end delivery
+   - reply modal submit, and restart mid-modal
+   - `/anon-block` and `/anon-unblock` round-trip
+   - First-use `#abot-reports` channel creation, admin invite,
+     onboarding message
+   - Subsequent report reuses the cached channel id
+6. **Merge `refactor/enterprise` to `main`** once the rollout
+   checks pass.
