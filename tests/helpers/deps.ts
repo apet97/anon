@@ -80,6 +80,7 @@ export function makeTestDeps(overrides: MakeTestDepsOverrides = {}): TestDeps {
   const credentialsStore = new SqliteCredentialsStore(db);
   return {
     db,
+    version: "0.0.0-test",
     config: TEST_CONFIG,
     repos,
     pendingRepliesRepo,

@@ -78,8 +78,13 @@ auditLog.record({
   },
 });
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pkgVersion: string = require("../package.json").version ?? "0.0.0";
+
 const deps: AppDeps = {
   config,
+  db,
+  version: pkgVersion,
   repos,
   pendingRepliesRepo,
   auditLog,

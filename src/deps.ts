@@ -1,3 +1,4 @@
+import type BetterSqlite3 from "better-sqlite3";
 import type { CredentialsStore } from "pumble-sdk";
 import type { AppConfig } from "./config";
 import type { Repos } from "./db/repos";
@@ -20,6 +21,8 @@ import type { Logger } from "./logger";
  */
 export interface AppDeps {
   config: AppConfig;
+  db: BetterSqlite3.Database;
+  version: string;
   repos: Repos;
   pendingRepliesRepo: PendingRepliesRepo;
   auditLog: AuditLogRepo;

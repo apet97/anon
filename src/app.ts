@@ -1,5 +1,6 @@
 import type { App } from "pumble-sdk";
 import type { AppDeps } from "./deps";
+import { registerHealthRoutes } from "./http/health";
 import { makeAnonCommand } from "./commands/anon";
 import { makeAnonBlockCommand } from "./commands/anonBlock";
 import { makeAnonUnblockCommand } from "./commands/anonUnblock";
@@ -60,5 +61,12 @@ export function createApp(deps: AppDeps): App {
     ],
     eventsPath: "/hook",
     tokenStore: deps.credentialsStore,
+    onServerConfiguring: (express) => {
+      registerHealthRoutes(express, {
+        db: deps.db,
+        logger: deps.logger,
+        version: deps.version,
+      });
+    },
   };
 }
