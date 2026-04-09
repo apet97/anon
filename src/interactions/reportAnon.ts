@@ -120,6 +120,13 @@ export function makeReportAnonHandler(deps: AppDeps): ReportAnonHandler {
         },
         "abuse report posted",
       );
+      deps.auditLog.record({
+        eventType: "REPORT",
+        workspaceId: ctx.payload.workspaceId,
+        actorId: reporterId,
+        targetId: anonSenderId,
+        convId,
+      });
     } catch (err) {
       deps.logger.error(
         {

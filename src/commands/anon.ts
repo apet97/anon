@@ -87,12 +87,28 @@ export function makeAnonCommand(deps: AppDeps): AnonCommand {
             { eventType: "SEND", convId, outcome: "ok" },
             "anon message delivered",
           );
+          deps.auditLog.record({
+            eventType: "SEND",
+            workspaceId: ctx.payload.workspaceId,
+            actorId: senderId,
+            targetId: recipientId,
+            convId,
+            metadata: { outcome: "ok" },
+          });
           await ctx.say("Anonymous message sent.", "ephemeral");
         } else {
           deps.logger.warn(
             { eventType: "SEND", convId, outcome: "no-channel" },
             "anon message not delivered",
           );
+          deps.auditLog.record({
+            eventType: "SEND",
+            workspaceId: ctx.payload.workspaceId,
+            actorId: senderId,
+            targetId: recipientId,
+            convId,
+            metadata: { outcome: "no-channel" },
+          });
           await ctx.say(
             "Could not deliver message. The recipient may not be reachable.",
             "ephemeral",

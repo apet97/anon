@@ -102,6 +102,14 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
         },
         "anon reply processed",
       );
+      deps.auditLog.record({
+        eventType: "REPLY",
+        workspaceId,
+        actorId: userId,
+        targetId,
+        convId: pending.convId,
+        metadata: { outcome: sent ? "ok" : "no-channel" },
+      });
     } catch (err) {
       deps.logger.error(
         {

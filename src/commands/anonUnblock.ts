@@ -15,6 +15,11 @@ export function makeAnonUnblockCommand(deps: AppDeps): AnonCommand {
         { eventType: "UNBLOCK", actorId: ctx.payload.userId, outcome: "ok" },
         "user unblocked anonymous messages",
       );
+      deps.auditLog.record({
+        eventType: "UNBLOCK",
+        workspaceId: ctx.payload.workspaceId,
+        actorId: ctx.payload.userId,
+      });
       await ctx.say("You can now receive anonymous messages again.", "ephemeral");
     },
   };
