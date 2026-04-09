@@ -1,12 +1,32 @@
+# Dependencies & build output
 node_modules/
 dist/
-tokens.json
-.pumbleapprc
-.pumble-app-manifest.json
-.env
-.DS_Store
+coverage/
+
+# Local runtime data
+data/
+*.log
+*.db
+*.db-wal
+*.db-shm
 conversations.db
 conversations.db-wal
 conversations.db-shm
-package-lock.json
-CLAUDE.md
+
+# Pumble SDK local config & secrets
+.env
+.env.local
+.env.*.local
+.pumbleapprc
+.pumble-app-manifest.json
+tokens.json
+tokens.json.migrated
+
+# Research mirror — never track
+reference/
+
+# Editor / OS junk
+.DS_Store
+.idea/
+.vscode/
+*.swp
