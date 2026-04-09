@@ -22,7 +22,7 @@ import { makeAppUninstalledHandler } from "./events/appUninstalled";
  * the real `AppDeps` object and passing the returned `App` to the
  * SDK's `start()`.
  */
-export function createApp(deps: AppDeps, tokenStore: App["tokenStore"]): App {
+export function createApp(deps: AppDeps): App {
   return {
     slashCommands: [
       makeAnonCommand(deps),
@@ -59,6 +59,6 @@ export function createApp(deps: AppDeps, tokenStore: App["tokenStore"]): App {
       },
     ],
     eventsPath: "/hook",
-    tokenStore,
+    tokenStore: deps.credentialsStore,
   };
 }

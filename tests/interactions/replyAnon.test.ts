@@ -24,7 +24,7 @@ describe("reply_anon interaction", () => {
     expect(element.line_mode).toBe("multiline");
     expect(element.multiline).toBeUndefined();
     // Pending state persisted
-    const pending = await deps.pendingReplies.get("u1");
+    const pending = await deps.pendingReplies.get("ws-1", "u1");
     expect(pending).toEqual({ convId: "conv-1", direction: "recipient" });
   });
 });

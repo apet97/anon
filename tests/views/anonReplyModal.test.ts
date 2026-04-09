@@ -11,7 +11,7 @@ describe("anon_reply_modal submit", () => {
   it("sends a reply, flips the direction, and clears pending state", async () => {
     const deps = makeTestDeps();
     deps.repos.conversations.insert("c1", "sender-1", "recipient-1");
-    await deps.pendingReplies.set("recipient-1", {
+    await deps.pendingReplies.set("ws-1", "recipient-1", {
       convId: "c1",
       direction: "recipient",
     });
@@ -33,7 +33,7 @@ describe("anon_reply_modal submit", () => {
 
     expect(ctx.ackCalls).toBe(1);
     // Pending state cleared
-    expect(await deps.pendingReplies.get("recipient-1")).toBeUndefined();
+    expect(await deps.pendingReplies.get("ws-1", "recipient-1")).toBeUndefined();
     // Reply sent to the ORIGINAL sender (direction flipped)
     expect(client.posts).toHaveLength(1);
     const post = client.posts[0];
@@ -57,7 +57,7 @@ describe("anon_reply_modal submit", () => {
   it("rejects replies longer than 2000 chars without posting", async () => {
     const deps = makeTestDeps();
     deps.repos.conversations.insert("c1", "sender-1", "recipient-1");
-    await deps.pendingReplies.set("recipient-1", {
+    await deps.pendingReplies.set("ws-1", "recipient-1", {
       convId: "c1",
       direction: "recipient",
     });
@@ -78,11 +78,11 @@ describe("anon_reply_modal submit", () => {
 describe("anon_reply_modal close", () => {
   it("acks and clears pending state", async () => {
     const deps = makeTestDeps();
-    await deps.pendingReplies.set("u1", { convId: "c1", direction: "recipient" });
+    await deps.pendingReplies.set("ws-1", "u1", { convId: "c1", direction: "recipient" });
     const handler = makeAnonReplyModalClose(deps);
     const ctx = makeViewActionCtx({ userId: "u1", state: {} });
     await handler(ctx as any);
     expect(ctx.ackCalls).toBe(1);
-    expect(await deps.pendingReplies.get("u1")).toBeUndefined();
+    expect(await deps.pendingReplies.get("ws-1", "u1")).toBeUndefined();
   });
 });

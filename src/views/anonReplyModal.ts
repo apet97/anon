@@ -31,8 +31,9 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
     await ctx.ack();
 
     const userId = ctx.payload.userId;
-    const pending = await deps.pendingReplies.get(userId);
-    await deps.pendingReplies.delete(userId);
+    const workspaceId = ctx.payload.workspaceId;
+    const pending = await deps.pendingReplies.get(workspaceId, userId);
+    await deps.pendingReplies.delete(workspaceId, userId);
 
     if (!pending) {
       deps.logger.warn(
@@ -118,6 +119,9 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
 export function makeAnonReplyModalClose(deps: AppDeps): ModalHandler {
   return async (ctx) => {
     await ctx.ack();
-    await deps.pendingReplies.delete(ctx.payload.userId);
+    await deps.pendingReplies.delete(
+      ctx.payload.workspaceId,
+      ctx.payload.userId,
+    );
   };
 }

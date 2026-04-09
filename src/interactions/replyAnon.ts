@@ -22,7 +22,10 @@ export function makeReplyAnonHandler(deps: AppDeps): ReplyAnonHandler {
     const value: string = raw.value;
     const [convId, direction] = value.split(":") as [string, ReplyDirection];
 
-    await deps.pendingReplies.set(ctx.payload.userId, { convId, direction });
+    await deps.pendingReplies.set(ctx.payload.workspaceId, ctx.payload.userId, {
+      convId,
+      direction,
+    });
 
     await ctx.spawnModalView({
       callbackId: "anon_reply_modal",

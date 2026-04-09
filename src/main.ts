@@ -1,28 +1,30 @@
-import { start, JsonFileTokenStore } from "pumble-sdk";
+import * as path from "path";
+import { start } from "pumble-sdk";
 import { loadConfig } from "./config";
 import { openDb } from "./db/connection";
 import { makeRepos } from "./db/repos";
+import { makePendingRepliesRepo } from "./db/repos/pendingRepliesRepo";
+import { makeAuditLogRepo } from "./db/repos/auditLogRepo";
+import { runMigrations } from "./db/migrations/migrator";
 import { makeLogger } from "./logger";
 import { makeRateLimitService } from "./services/rateLimit";
 import { makeAnonMessageService } from "./services/anonMessage";
 import { makeReportChannelService } from "./services/reportChannel";
-import { makeInMemoryPendingRepliesService } from "./services/pendingReplies";
+import { makeSqlitePendingRepliesService } from "./services/pendingReplies";
+import { SqliteCredentialsStore } from "./tokens/sqliteCredentialsStore";
 import { createApp } from "./app";
 import type { AppDeps } from "./deps";
 
 /**
  * Runtime bootstrap: load env-validated config, open the database,
- * assemble the dependency bag, and hand the resulting `App` to the
- * Pumble SDK's `start()`.
+ * run migrations, assemble the dependency bag, and hand the resulting
+ * `App` to the Pumble SDK's `start()`.
  *
  * This module has side effects and is explicitly excluded from the
- * vitest coverage scope. Any logic that needs testing belongs in
- * `src/app.ts` or the individual service/handler modules.
- *
- * Phase 5 swaps `makeInMemoryPendingRepliesService` for the SQLite
- * implementation and the `JsonFileTokenStore` for the custom
- * `SqliteCredentialsStore`. Neither change requires touching
- * anything below.
+ * vitest coverage scope. All logic that needs testing lives in
+ * `src/app.ts`, the service modules, or the individual handler
+ * factories — each of which is pure with respect to the filesystem
+ * and environment.
  */
 
 const config = loadConfig();
@@ -37,7 +39,19 @@ logger.info(
 );
 
 const db = openDb(config.databasePath);
+const migrationsDir = path.resolve(__dirname, "db/migrations");
+const migrationResult = runMigrations(db, migrationsDir);
+logger.info(
+  {
+    migrationsApplied: migrationResult.applied,
+    migrationsSkipped: migrationResult.skipped,
+  },
+  "migrations complete",
+);
+
 const repos = makeRepos(db);
+const pendingRepliesRepo = makePendingRepliesRepo(db);
+const auditLog = makeAuditLogRepo(db);
 
 const rateLimit = makeRateLimitService({
   rateLimits: repos.rateLimits,
@@ -51,18 +65,30 @@ const reportChannel = makeReportChannelService({
   config: repos.config,
   logger,
 });
-const pendingReplies = makeInMemoryPendingRepliesService();
+const pendingReplies = makeSqlitePendingRepliesService(pendingRepliesRepo);
+const credentialsStore = new SqliteCredentialsStore(db);
+
+// Record startup in the audit log so we can confirm cold-start
+// behaviour from historical data.
+auditLog.record({
+  eventType: "STARTUP",
+  metadata: {
+    nodeEnv: config.nodeEnv,
+    migrationsApplied: migrationResult.applied.length,
+  },
+});
 
 const deps: AppDeps = {
   config,
   repos,
+  pendingRepliesRepo,
+  auditLog,
   anonMessage,
   rateLimit,
   reportChannel,
   pendingReplies,
+  credentialsStore,
   logger,
 };
 
-const tokenStore = new JsonFileTokenStore("tokens.json");
-
-start(createApp(deps, tokenStore));
+start(createApp(deps));
