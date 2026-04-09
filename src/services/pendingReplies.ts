@@ -1,3 +1,5 @@
+import type { PendingRepliesRepo } from "../db/repos/pendingRepliesRepo";
+
 /**
  * Ephemeral state for in-flight reply modals.
  *
@@ -9,9 +11,9 @@
  *   original sender in response to an anonymous reply — the target
  *   is the recipient.
  *
- * Phase 5 replaces this in-memory implementation with a SQLite-backed
- * store so the modal flow survives a process restart. Both
- * implementations share this interface.
+ * Storage is keyed by (workspaceId, userId) because the same user id
+ * can exist in multiple workspaces for a single bot install and the
+ * SQLite `pending_replies` table uses that composite primary key.
  */
 export type ReplyDirection = "recipient" | "sender";
 
@@ -21,28 +23,59 @@ export interface PendingReply {
 }
 
 export interface PendingRepliesService {
-  set(userId: string, pending: PendingReply): Promise<void>;
-  get(userId: string): Promise<PendingReply | undefined>;
-  delete(userId: string): Promise<void>;
+  set(
+    workspaceId: string,
+    userId: string,
+    pending: PendingReply,
+  ): Promise<void>;
+  get(workspaceId: string, userId: string): Promise<PendingReply | undefined>;
+  delete(workspaceId: string, userId: string): Promise<void>;
 }
 
 /**
- * In-memory implementation used by the pre-Phase-5 code path. Exists
- * only so that the modular refactor in Phase 3/4 can proceed without
- * a behaviour change. See `makeSqlitePendingRepliesService` for the
- * durable implementation introduced in Phase 5.
+ * In-memory implementation. Used by tests that don't need to
+ * exercise the SQLite layer and as a fallback for environments
+ * where the migrator has not yet been run.
  */
 export function makeInMemoryPendingRepliesService(): PendingRepliesService {
   const state = new Map<string, PendingReply>();
+  const key = (workspaceId: string, userId: string) => `${workspaceId}:${userId}`;
   return {
-    async set(userId, pending) {
-      state.set(userId, pending);
+    async set(workspaceId, userId, pending) {
+      state.set(key(workspaceId, userId), pending);
     },
-    async get(userId) {
-      return state.get(userId);
+    async get(workspaceId, userId) {
+      return state.get(key(workspaceId, userId));
     },
-    async delete(userId) {
-      state.delete(userId);
+    async delete(workspaceId, userId) {
+      state.delete(key(workspaceId, userId));
+    },
+  };
+}
+
+/**
+ * SQLite-backed implementation. Uses the `pending_replies` table
+ * from migration 002 so the modal flow survives process restarts.
+ */
+export function makeSqlitePendingRepliesService(
+  repo: PendingRepliesRepo,
+): PendingRepliesService {
+  return {
+    async set(workspaceId, userId, pending) {
+      repo.upsert({
+        workspaceId,
+        userId,
+        convId: pending.convId,
+        direction: pending.direction,
+      });
+    },
+    async get(workspaceId, userId) {
+      const row = repo.get(workspaceId, userId);
+      if (!row) return undefined;
+      return { convId: row.conv_id, direction: row.direction };
+    },
+    async delete(workspaceId, userId) {
+      repo.delete(workspaceId, userId);
     },
   };
 }
