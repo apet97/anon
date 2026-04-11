@@ -1,0 +1,38 @@
+{
+  "name": "anon",
+  "version": "0.1.0",
+  "description": "Pumble anonymous messaging bot",
+  "main": "dist/main.js",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-migrations.mjs",
+    "compile": "tsc -p tsconfig.json",
+    "type-check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "start": "node dist/main.js",
+    "dev": "pumble-cli",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "pino": "^9.5.0",
+    "pumble-sdk": "1.1.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^4",
+    "@types/node": "^24",
+    "@typescript-eslint/eslint-plugin": "^8",
+    "@typescript-eslint/parser": "^8",
+    "@vitest/coverage-v8": "^4.1.4",
+    "eslint": "^9",
+    "pino-pretty": "^11.3.0",
+    "pumble-cli": "1.1.1",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.4"
+  }
+}

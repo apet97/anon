@@ -1,0 +1,38 @@
+{
+  "id": "69dac87b80ec003ce9ae60c7",
+  "name": "abot",
+  "displayName": "Anon",
+  "bot": true,
+  "botTitle": "Anonymous Messaging Bot",
+  "socketMode": false,
+  "scopes": {
+    "botScopes": ["messages:write", "channels:read", "channels:list", "channels:write", "users:list"],
+    "userScopes": []
+  },
+  "shortcuts": [],
+  "slashCommands": [
+    {
+      "command": "/anon",
+      "url": "https://anon.example.com/slash/anon",
+      "description": "Send an anonymous message",
+      "usageHint": "@user message or just message"
+    },
+    {
+      "command": "/anon-block",
+      "url": "https://anon.example.com/slash/anon-block",
+      "description": "Stop receiving anonymous messages"
+    },
+    {
+      "command": "/anon-unblock",
+      "url": "https://anon.example.com/slash/anon-unblock",
+      "description": "Resume receiving anonymous messages"
+    }
+  ],
+  "eventSubscriptions": {
+    "url": "https://anon.example.com/events",
+    "events": ["APP_UNAUTHORIZED", "APP_UNINSTALLED"]
+  },
+  "redirectUrls": ["https://anon.example.com/oauth/callback"],
+  "welcomeMessage": "Anon is installed. Use /anon @user your message to send anonymous DMs. Use /anon-block to opt out.",
+  "offlineMessage": "Anon is temporarily unavailable. Please try again in a few minutes."
+}

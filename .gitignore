@@ -1,0 +1,24 @@
+# Dependencies & build output
+node_modules/
+dist/
+coverage/
+
+# Local runtime data (SQLite DB + WAL)
+data/
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+.pumble*
+tokens.json
+
+# Editor / OS junk
+.DS_Store
+.idea/
+.vscode/
+*.swp
