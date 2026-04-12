@@ -16,6 +16,30 @@ npm run build         # tsc → dist/ + copy migrations
 npm run dev           # pumble-cli dev server (local tunnel + manifest sync)
 ```
 
+## Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Node.js 20+ (LTS) |
+| Language | TypeScript (strict mode) |
+| Framework | Pumble SDK 1.1.1 (`pumble-sdk`) |
+| Database | SQLite via `better-sqlite3` (synchronous, WAL mode) |
+| Testing | Vitest + v8 coverage |
+| Logging | Pino (structured JSON, PII redacted) |
+| Container | Alpine + tini + su-exec (non-root) |
+| Hosting | Railway (with persistent volume at `/app/data`) |
+| CI | GitHub Actions (Node 20+22 matrix) |
+
+## Architecture at a glance
+
+```
+ctx.payload → command/interaction/view handler → service → repo → SQLite
+                         ↓
+                      AppDeps (dependency bag injected into every handler)
+```
+
+Every handler factory (`makeXxxCommand`, `makeXxxHandler`) takes `AppDeps` and returns a handler function. No global state. Services own business logic; repos own SQL.
+
 ## `/anon` is context-aware
 
 One handler, three paths based on `ctx.payload`:
@@ -56,6 +80,21 @@ Detection lives in `src/commands/anon.ts`. DM takes priority over thread context
 - The `conversations` table has `workspace_id`, `message_type` (`'dm' | 'channel' | 'thread'`), `channel_id`, and `thread_root_id` columns. The `thread_root_id` is captured from Pumble's response to `postMessageToChannel()` so replies can call `client.v1.messages.reply()` with a real message ID.
 - The `reportChannel` service uses a `Map<workspaceId, Promise>` in-flight guard so concurrent first-reports in the same workspace share one channel-creation promise, while different workspaces create independently.
 
+## Database tables (7 migrations)
+
+| Table | PK | Workspace-scoped | Purpose |
+|-------|-----|:-:|---------|
+| `conversations` | `id` (UUID) | yes | Sender/recipient identity, message type, thread context |
+| `blocked_users` | `(workspace_id, user_id)` | yes | Opt-out list for DMs |
+| `rate_limits` | `(workspace_id, user_id)` | yes | Global per-sender rate counter |
+| `target_limits` | `(workspace_id, sender_id, target_id)` | yes | Per-pair rate counter |
+| `config` | `(workspace_id, key)` | yes | Report channel ID, future settings |
+| `pending_replies` | `(workspace_id, user_id)` | yes | Modal state (survives restart) |
+| `audit_log` | `id` (auto) | yes | Every sensitive event with outcome |
+| `tokens` | `(workspace_id, workspace_user_id, token_kind)` | yes | Bot + user OAuth tokens |
+
+Retention scheduler purges `conversations` and `audit_log` at 90 days, `pending_replies` at 24 hours, rate/target limits at their window expiry.
+
 ## Reply flow routing
 
 `src/views/anonReplyModal.ts` looks up `conv.message_type`:
@@ -65,6 +104,24 @@ Detection lives in `src/commands/anon.ts`. DM takes priority over thread context
 
 Channel/thread replies skip the self-reply and block-check guards (no specific recipient to check).
 
+## Testing patterns
+
+- In-memory SQLite via `makeTestDeps()` or `makeTestDb()` — both run all 7 migrations.
+- All repo/service calls must pass a workspace ID (`"ws-1"` by convention).
+- Inject clocks via `now?: () => number` on service factories.
+- `tests/helpers/ctx.ts` — fake slash-command, block-interaction, and view-action contexts.
+- `tests/helpers/pumbleClient.ts` — `FakePumbleClient` captures `posts`, `channelPosts`, `threadReplies` in separate arrays.
+- 117 tests across 21 files. Coverage thresholds enforced in CI.
+
+## Lifecycle events
+
+| Event | Handler | Cleanup |
+|-------|---------|---------|
+| `APP_UNINSTALLED` | `src/events/appUninstalled.ts` | Tokens, pending replies, blocked users, rate limits, target limits, config |
+| `APP_UNAUTHORIZED` | `src/events/appUnauthorized.ts` | User token + user pending replies only |
+
+Conversations and audit_log are preserved on uninstall for admin review.
+
 ## Production quirks learned the hard way
 
 - **Railway bans `VOLUME` directives in Dockerfiles.** Use Railway's volume API instead. Our Dockerfile has no `VOLUME`; `/app/data` is the mount point only.
@@ -72,3 +129,10 @@ Channel/thread replies skip the self-reply and block-check guards (no specific r
 - **`manifest.json` must be COPY'd into the runtime image.** The SDK reads it at startup from CWD.
 - **OAuth consent URL for reinstalls:** scope names need `bot:` prefix when passed via the `scopes` query param. E.g. `bot:messages:write`, not `messages:write`.
 - **`pumble-cli pre-publish` is interactive.** It prompts `Do you want to apply these updates? (y/N)`. Pipe `y` via stdin, don't pipe output through `tail`/`grep` (the buffer swallows the prompt and deadlocks).
+
+## Marketplace status
+
+- Multi-workspace ready (migration 007, all tables scoped)
+- 117/117 tests, 0 vulnerabilities, privacy policy published
+- Deployed on Railway: `https://anon-production-c04a.up.railway.app`
+- Next step: `pumble-cli pre-publish` → CAKE.com developer portal submission

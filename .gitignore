@@ -17,6 +17,10 @@ data/
 .pumble*
 tokens.json
 
+# Local-only documentation (not committed)
+how-it-was-built/
+prompts/
+
 # Editor / OS junk
 .DS_Store
 .idea/
