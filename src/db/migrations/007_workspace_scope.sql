@@ -55,3 +55,11 @@ ALTER TABLE config_new RENAME TO config;
 
 -- conversations: add workspace_id column (PK stays id UUID)
 ALTER TABLE conversations ADD COLUMN workspace_id TEXT NOT NULL DEFAULT '';
+
+-- Recreate indexes dropped when rate_limits and target_limits were
+-- rebuilt above. Migration 005 created these but DROP TABLE removes
+-- associated indexes and 005 will not re-run.
+CREATE INDEX IF NOT EXISTS idx_rate_limits_window_start
+  ON rate_limits(window_start);
+CREATE INDEX IF NOT EXISTS idx_target_limits_window_start
+  ON target_limits(window_start);

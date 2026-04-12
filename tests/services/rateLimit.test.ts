@@ -54,6 +54,14 @@ describe("rateLimit.checkGlobal", () => {
     expect(svc.checkGlobal(WS, "u1")).toBe(false);
     expect(svc.checkGlobal(WS, "u2")).toBe(true);
   });
+
+  it("isolates rate limits across workspaces", () => {
+    for (let i = 0; i < RATE_LIMIT; i += 1) {
+      svc.checkGlobal(WS, "u1");
+    }
+    expect(svc.checkGlobal(WS, "u1")).toBe(false);
+    expect(svc.checkGlobal("ws-other", "u1")).toBe(true);
+  });
 });
 
 describe("rateLimitsRepo.purgeOlderThan", () => {
@@ -114,6 +122,14 @@ describe("rateLimit.checkTarget", () => {
     }
     expect(svc.checkTarget(WS, "s1", "t1")).toBe(false);
     expect(svc.checkTarget(WS, "s1", "t2")).toBe(true);
+  });
+
+  it("isolates target limits across workspaces", () => {
+    for (let i = 0; i < TARGET_RATE_LIMIT; i += 1) {
+      svc.checkTarget(WS, "s1", "t1");
+    }
+    expect(svc.checkTarget(WS, "s1", "t1")).toBe(false);
+    expect(svc.checkTarget("ws-other", "s1", "t1")).toBe(true);
   });
 
   it("resets after the 1h window expires", () => {

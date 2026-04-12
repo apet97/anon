@@ -53,7 +53,7 @@ async function handleDm(
     return;
   }
   if (!deps.rateLimit.checkGlobal(workspaceId, senderId)) {
-    await ctx.say("Slow down! You can send up to 5 anonymous messages per minute.", "ephemeral");
+    await ctx.say("Slow down! You've hit the rate limit. Try again in a minute.", "ephemeral");
     return;
   }
   if (!deps.rateLimit.checkTarget(workspaceId, senderId, recipientId)) {
@@ -115,7 +115,7 @@ async function handleChannel(
     return;
   }
   if (!deps.rateLimit.checkGlobal(workspaceId, senderId)) {
-    await ctx.say("Slow down! You can send up to 5 anonymous messages per minute.", "ephemeral");
+    await ctx.say("Slow down! You've hit the rate limit. Try again in a minute.", "ephemeral");
     return;
   }
   if (!deps.rateLimit.checkTarget(workspaceId, senderId, ctx.payload.channelId)) {
@@ -165,7 +165,7 @@ async function handleThread(
     return;
   }
   if (!deps.rateLimit.checkGlobal(workspaceId, senderId)) {
-    await ctx.say("Slow down! You can send up to 5 anonymous messages per minute.", "ephemeral");
+    await ctx.say("Slow down! You've hit the rate limit. Try again in a minute.", "ephemeral");
     return;
   }
   if (!deps.rateLimit.checkTarget(workspaceId, senderId, ctx.payload.channelId)) {
