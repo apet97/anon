@@ -1,9 +1,10 @@
 import type Database from "better-sqlite3";
+import {
+  checkAndIncrementSlidingWindow,
+  type SlidingWindowRow,
+} from "./slidingWindow";
 
-export interface TargetLimitRow {
-  msg_count: number;
-  window_start: number;
-}
+export type TargetLimitRow = SlidingWindowRow;
 
 export interface TargetLimitsRepo {
   get(workspaceId: string, senderId: string, targetId: string): TargetLimitRow | undefined;
@@ -40,7 +41,7 @@ export function makeTargetLimitsRepo(db: Database.Database): TargetLimitsRepo {
     "DELETE FROM target_limits WHERE workspace_id = ?",
   );
 
-  const checkAndIncrementFn = db.transaction(
+  const checkAndIncrementTx = db.transaction(
     (
       workspaceId: string,
       senderId: string,
@@ -48,16 +49,13 @@ export function makeTargetLimitsRepo(db: Database.Database): TargetLimitsRepo {
       now: number,
       limit: number,
       windowSecs: number,
-    ): boolean => {
-      const row = getStmt.get(workspaceId, senderId, targetId) as TargetLimitRow | undefined;
-      if (!row || now - row.window_start > windowSecs) {
-        resetStmt.run(workspaceId, senderId, targetId, now);
-        return true;
-      }
-      if (row.msg_count >= limit) return false;
-      incrementStmt.run(workspaceId, senderId, targetId);
-      return true;
-    },
+    ): boolean =>
+      checkAndIncrementSlidingWindow(
+        () => getStmt.get(workspaceId, senderId, targetId) as TargetLimitRow | undefined,
+        (n) => { resetStmt.run(workspaceId, senderId, targetId, n); },
+        () => { incrementStmt.run(workspaceId, senderId, targetId); },
+        now, limit, windowSecs,
+      ),
   );
 
   return {
@@ -71,14 +69,7 @@ export function makeTargetLimitsRepo(db: Database.Database): TargetLimitsRepo {
       incrementStmt.run(workspaceId, senderId, targetId);
     },
     checkAndIncrement(workspaceId, senderId, targetId, now, limit, windowSecs) {
-      return checkAndIncrementFn(
-        workspaceId,
-        senderId,
-        targetId,
-        now,
-        limit,
-        windowSecs,
-      ) as boolean;
+      return checkAndIncrementTx(workspaceId, senderId, targetId, now, limit, windowSecs);
     },
     purgeOlderThan(windowStartCutoff) {
       return purgeStmt.run(windowStartCutoff).changes;

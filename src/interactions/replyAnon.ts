@@ -1,10 +1,8 @@
 import type { BlockInteractionContext } from "pumble-sdk/lib/core/types/contexts";
 import type { AppDeps } from "../deps";
-import type { ReplyDirection } from "../services/pendingReplies";
+import { VALID_DIRECTIONS, type ReplyDirection } from "../services/pendingReplies";
 
 type MessageBlockInteractionCtx = BlockInteractionContext<"MESSAGE">;
-
-const VALID_DIRECTIONS: ReadonlySet<string> = new Set(["recipient", "sender"]);
 
 /**
  * `reply_anon` button handler — opens the anonymous reply modal.
@@ -39,7 +37,7 @@ export function makeReplyAnonHandler(deps: AppDeps): ReplyAnonHandler {
     const parts = value.split(":");
     const convId = parts[0];
     const direction = parts[1];
-    if (!convId || !direction || !VALID_DIRECTIONS.has(direction)) {
+    if (!convId || !direction || !VALID_DIRECTIONS.has(direction as ReplyDirection)) {
       deps.logger.warn(
         { actorId: ctx.payload.userId, value, outcome: "bad-payload" },
         "reply_anon: invalid payload value",

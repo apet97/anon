@@ -17,6 +17,11 @@ import type { PendingRepliesRepo } from "../db/repos/pendingRepliesRepo";
  */
 export type ReplyDirection = "recipient" | "sender";
 
+export const VALID_DIRECTIONS: ReadonlySet<ReplyDirection> = new Set([
+  "recipient",
+  "sender",
+]);
+
 export interface PendingReply {
   convId: string;
   direction: ReplyDirection;

@@ -184,6 +184,47 @@ describe("anon_reply_modal submit", () => {
     expect(await deps.pendingReplies.get("ws-1", "recipient-1")).toBeDefined();
   });
 
+  it("refuses to reply and writes a missing-channel-id audit row when a channel conv has NULL channel_id", async () => {
+    const deps = makeTestDeps();
+    // Bypass the repo writer to construct an illegal row: message_type='channel'
+    // but channel_id IS NULL. Represents a corrupt row or a writer bug.
+    deps.db
+      .prepare(
+        "INSERT INTO conversations (id, workspace_id, sender_id, recipient_id, message_type, channel_id) " +
+          "VALUES (?, ?, ?, '', 'channel', NULL)",
+      )
+      .run("c1", "ws-1", "sender-1");
+    await deps.pendingReplies.set("ws-1", "recipient-1", {
+      convId: "c1",
+      direction: "recipient",
+    });
+    const client = makeFakePumbleClient();
+    const handler = makeAnonReplyModalSubmit(deps);
+    const ctx = makeViewActionCtx({
+      userId: "recipient-1",
+      state: {
+        values: { reply_block: { reply_text: { value: "thanks" } } },
+      },
+      botClient: client,
+    });
+
+    await handler(ctx as any);
+
+    expect(ctx.ackCalls).toBe(1);
+    expect(client.posts).toHaveLength(0);
+    expect(client.threadReplies).toHaveLength(0);
+    const row = deps.auditLog
+      .listRecent(10)
+      .find(
+        (r) =>
+          r.event_type === "REPLY" &&
+          (r.metadata_json ?? "").includes('"outcome":"missing-channel-id"'),
+      );
+    expect(row).toBeDefined();
+    expect(row!.actor_id).toBe("recipient-1");
+    expect(row!.conv_id).toBe("c1");
+  });
+
   it("keeps the pending row when postMessageToChannel throws", async () => {
     const deps = makeTestDeps();
     deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");

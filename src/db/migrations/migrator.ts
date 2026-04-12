@@ -33,13 +33,14 @@ function ensureMigrationsTable(db: Database.Database) {
 
 function discoverMigrations(dir: string): Array<{ version: string; file: string }> {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
-  const files = entries
-    .filter((e) => e.isFile() && MIGRATION_FILE_PATTERN.test(e.name))
-    .map((e) => {
-      const match = MIGRATION_FILE_PATTERN.exec(e.name)!;
-      const version = match[1] as string;
-      return { version, file: path.join(dir, e.name) };
-    });
+  const files: Array<{ version: string; file: string }> = [];
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const match = entry.name.match(MIGRATION_FILE_PATTERN);
+    if (!match) continue;
+    const version = match[1] as string;
+    files.push({ version, file: path.join(dir, entry.name) });
+  }
   // Sort numerically so "010" > "009" even in locales where lexicographic != numeric.
   files.sort((a, b) => parseInt(a.version, 10) - parseInt(b.version, 10));
   return files;

@@ -141,7 +141,6 @@ async function main(): Promise<void> {
   } catch (err) {
     // Any synchronous or async bootstrap failure is caught here and logged
     // with full structure before a clean exit(1).
-    // eslint-disable-next-line no-console
     console.error({ err }, "bootstrap.failed");
     process.exit(1);
   }

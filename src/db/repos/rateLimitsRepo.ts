@@ -1,9 +1,10 @@
 import type Database from "better-sqlite3";
+import {
+  checkAndIncrementSlidingWindow,
+  type SlidingWindowRow,
+} from "./slidingWindow";
 
-export interface RateLimitRow {
-  msg_count: number;
-  window_start: number;
-}
+export type RateLimitRow = SlidingWindowRow;
 
 export interface RateLimitsRepo {
   get(workspaceId: string, userId: string): RateLimitRow | undefined;
@@ -39,17 +40,14 @@ export function makeRateLimitsRepo(db: Database.Database): RateLimitsRepo {
     "DELETE FROM rate_limits WHERE workspace_id = ?",
   );
 
-  const checkAndIncrementFn = db.transaction(
-    (workspaceId: string, userId: string, now: number, limit: number, windowSecs: number): boolean => {
-      const row = getStmt.get(workspaceId, userId) as RateLimitRow | undefined;
-      if (!row || now - row.window_start > windowSecs) {
-        resetStmt.run(workspaceId, userId, now);
-        return true;
-      }
-      if (row.msg_count >= limit) return false;
-      incrementStmt.run(workspaceId, userId);
-      return true;
-    },
+  const checkAndIncrementTx = db.transaction(
+    (workspaceId: string, userId: string, now: number, limit: number, windowSecs: number): boolean =>
+      checkAndIncrementSlidingWindow(
+        () => getStmt.get(workspaceId, userId) as RateLimitRow | undefined,
+        (n) => { resetStmt.run(workspaceId, userId, n); },
+        () => { incrementStmt.run(workspaceId, userId); },
+        now, limit, windowSecs,
+      ),
   );
 
   return {
@@ -63,7 +61,7 @@ export function makeRateLimitsRepo(db: Database.Database): RateLimitsRepo {
       incrementStmt.run(workspaceId, userId);
     },
     checkAndIncrement(workspaceId, userId, now, limit, windowSecs) {
-      return checkAndIncrementFn(workspaceId, userId, now, limit, windowSecs) as boolean;
+      return checkAndIncrementTx(workspaceId, userId, now, limit, windowSecs);
     },
     purgeOlderThan(windowStartCutoff) {
       return purgeStmt.run(windowStartCutoff).changes;

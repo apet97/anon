@@ -1,5 +1,6 @@
 import type { BlockInteractionContext } from "pumble-sdk/lib/core/types/contexts";
 import type { AppDeps } from "../deps";
+import { VALID_DIRECTIONS, type ReplyDirection } from "../services/pendingReplies";
 
 type MessageBlockInteractionCtx = BlockInteractionContext<"MESSAGE">;
 
@@ -19,8 +20,6 @@ export type ReportAnonHandler = (ctx: MessageBlockInteractionCtx) => Promise<voi
 const PREVIEW_MAX_CHARS = 200;
 
 export function makeReportAnonHandler(deps: AppDeps): ReportAnonHandler {
-  const VALID_DIRECTIONS: ReadonlySet<string> = new Set(["recipient", "sender"]);
-
   return async (ctx) => {
     let raw: { value?: string };
     try {
@@ -38,7 +37,7 @@ export function makeReportAnonHandler(deps: AppDeps): ReportAnonHandler {
     const parts = value.split(":");
     const convId = parts[0];
     const direction = parts[1];
-    if (!convId || !direction || !VALID_DIRECTIONS.has(direction)) {
+    if (!convId || !direction || !VALID_DIRECTIONS.has(direction as ReplyDirection)) {
       deps.logger.warn(
         { actorId: ctx.payload.userId, value, outcome: "bad-payload" },
         "report_anon: invalid payload value",

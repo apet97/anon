@@ -73,8 +73,24 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
 
     const isChannelOrThread = conv.message_type === "channel" || conv.message_type === "thread";
 
+    // Channel/thread conversations must carry a channel_id — the schema
+    // allows NULL (for legacy DM rows), so guard explicitly instead of
+    // asserting. A missing value here means either a writer bug or a
+    // corrupt row; fail closed with an audit trail.
+    if (isChannelOrThread && !conv.channel_id) {
+      deps.logger.error(
+        { eventType: "REPLY", convId: pending.convId, outcome: "missing-channel-id" },
+        "channel/thread conversation is missing channel_id",
+      );
+      deps.auditLog.record({
+        eventType: "REPLY", workspaceId, actorId: userId,
+        convId: pending.convId, metadata: { outcome: "missing-channel-id" },
+      });
+      return;
+    }
+
     const targetId = isChannelOrThread
-      ? conv.channel_id!
+      ? (conv.channel_id as string)
       : pending.direction === "recipient" ? conv.sender_id : conv.recipient_id;
     const newDirection = flip(pending.direction);
 
