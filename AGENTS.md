@@ -32,12 +32,13 @@ DM priority beats thread context. All three paths share the same Reply + Report 
 - SQLite is the only persistence layer; no in-memory state for anything durable.
 - Migrations are forward-only; never edit existing `.sql` files.
 - Rate-limit check+increment must go through `repo.checkAndIncrement()` (atomic).
+- Every repo method takes `workspaceId` as its first parameter. Always pass `ctx.payload.workspaceId` from handlers — never omit it.
 - Never log message bodies; never commit `.env`, `tokens.json`, `.pumbleapprc`, or `*.db*`.
 - `App.port = deps.config.port` in `createApp` — pumble-sdk doesn't read `PORT`, it reads `PUMBLE_ADDON_PORT` (default 5000).
 
 ## Testing approach
 
-- In-memory SQLite via `makeTestDeps()` (runs all migrations) or `makeTestDb()` (runs all migrations too, post-2026-04-12 update).
+- In-memory SQLite via `makeTestDeps()` or `makeTestDb()` (both run all 7 migrations). All repo/service calls in tests must pass a workspace ID (use `"ws-1"` by convention).
 - Inject clocks via `now?: () => number` on service factories.
 - Use the `tests/helpers/` ctx builders for slash-command, block-interaction, and view-action tests.
 - The fake `FakePumbleClient` captures `posts`, `channelPosts`, `threadReplies` separately — use the right array for the flow under test.

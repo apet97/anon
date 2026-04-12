@@ -86,7 +86,7 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
         );
         return;
       }
-      if (deps.repos.blockedUsers.isBlocked(targetId)) {
+      if (deps.repos.blockedUsers.isBlocked(workspaceId, targetId)) {
         deps.logger.warn(
           { eventType: "REPLY", convId: pending.convId, outcome: "recipient-blocked" },
           "reply submit to blocked recipient",
@@ -99,7 +99,7 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
       }
     }
 
-    if (!deps.rateLimit.checkGlobal(userId)) {
+    if (!deps.rateLimit.checkGlobal(workspaceId, userId)) {
       deps.logger.warn(
         { eventType: "REPLY", convId: pending.convId, outcome: "rate-limited-global" },
         "reply submit rate-limited (global)",
@@ -111,7 +111,7 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
       return;
     }
 
-    if (!deps.rateLimit.checkTarget(userId, targetId)) {
+    if (!deps.rateLimit.checkTarget(workspaceId, userId, targetId)) {
       deps.logger.warn(
         { eventType: "REPLY", convId: pending.convId, outcome: "rate-limited-target" },
         "reply submit rate-limited (target pair)",

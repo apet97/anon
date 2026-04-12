@@ -9,11 +9,12 @@ export interface ConversationRow {
   message_type: MessageType;
   channel_id: string | null;
   thread_root_id: string | null;
+  workspace_id: string;
 }
 
 export interface ConversationsRepo {
-  insert(id: string, senderId: string, recipientId: string): void;
-  insertChannel(id: string, senderId: string, channelId: string, messageType: MessageType, threadRootId?: string): void;
+  insert(id: string, workspaceId: string, senderId: string, recipientId: string): void;
+  insertChannel(id: string, workspaceId: string, senderId: string, channelId: string, messageType: MessageType, threadRootId?: string): void;
   get(id: string): ConversationRow | undefined;
   updateLastMessage(id: string, message: string): void;
   updateThreadRootId(id: string, threadRootId: string): void;
@@ -22,13 +23,13 @@ export interface ConversationsRepo {
 
 export function makeConversationsRepo(db: Database.Database): ConversationsRepo {
   const insertStmt = db.prepare(
-    "INSERT OR IGNORE INTO conversations (id, sender_id, recipient_id) VALUES (?, ?, ?)",
+    "INSERT OR IGNORE INTO conversations (id, workspace_id, sender_id, recipient_id) VALUES (?, ?, ?, ?)",
   );
   const insertChannelStmt = db.prepare(
-    "INSERT OR IGNORE INTO conversations (id, sender_id, recipient_id, message_type, channel_id, thread_root_id) VALUES (?, ?, '', ?, ?, ?)",
+    "INSERT OR IGNORE INTO conversations (id, workspace_id, sender_id, recipient_id, message_type, channel_id, thread_root_id) VALUES (?, ?, ?, '', ?, ?, ?)",
   );
   const getStmt = db.prepare(
-    "SELECT sender_id, recipient_id, last_message, message_type, channel_id, thread_root_id FROM conversations WHERE id = ?",
+    "SELECT sender_id, recipient_id, last_message, message_type, channel_id, thread_root_id, workspace_id FROM conversations WHERE id = ?",
   );
   const updateLastMessageStmt = db.prepare(
     "UPDATE conversations SET last_message = ? WHERE id = ?",
@@ -41,11 +42,11 @@ export function makeConversationsRepo(db: Database.Database): ConversationsRepo 
   );
 
   return {
-    insert(id, senderId, recipientId) {
-      insertStmt.run(id, senderId, recipientId);
+    insert(id, workspaceId, senderId, recipientId) {
+      insertStmt.run(id, workspaceId, senderId, recipientId);
     },
-    insertChannel(id, senderId, channelId, messageType, threadRootId) {
-      insertChannelStmt.run(id, senderId, messageType, channelId, threadRootId ?? null);
+    insertChannel(id, workspaceId, senderId, channelId, messageType, threadRootId) {
+      insertChannelStmt.run(id, workspaceId, senderId, messageType, channelId, threadRootId ?? null);
     },
     get(id) {
       return getStmt.get(id) as ConversationRow | undefined;

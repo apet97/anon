@@ -159,11 +159,11 @@ describe("retention scheduler integration", () => {
     const nowSec = 1_700_000_000;
     const nowMs = nowSec * 1000;
     const insert = ctx.db.prepare(
-      "INSERT INTO rate_limits (user_id, msg_count, window_start) VALUES (?, ?, ?)",
+      "INSERT INTO rate_limits (workspace_id, user_id, msg_count, window_start) VALUES (?, ?, ?, ?)",
     );
-    insert.run("u-old", 5, nowSec - RATE_LIMITS_WINDOW_SEC - 1);
-    insert.run("u-boundary", 5, nowSec - RATE_LIMITS_WINDOW_SEC);
-    insert.run("u-fresh", 5, nowSec - 1);
+    insert.run("ws-1", "u-old", 5, nowSec - RATE_LIMITS_WINDOW_SEC - 1);
+    insert.run("ws-1", "u-boundary", 5, nowSec - RATE_LIMITS_WINDOW_SEC);
+    insert.run("ws-1", "u-fresh", 5, nowSec - 1);
 
     runRetentionOnce(ctx.db, nowMs);
 
@@ -180,11 +180,11 @@ describe("retention scheduler integration", () => {
     const nowSec = 1_700_000_000;
     const nowMs = nowSec * 1000;
     const insert = ctx.db.prepare(
-      "INSERT INTO target_limits (sender_id, target_id, msg_count, window_start) VALUES (?, ?, ?, ?)",
+      "INSERT INTO target_limits (workspace_id, sender_id, target_id, msg_count, window_start) VALUES (?, ?, ?, ?, ?)",
     );
-    insert.run("s1", "t-old", 5, nowSec - TARGET_LIMITS_WINDOW_SEC - 1);
-    insert.run("s1", "t-boundary", 5, nowSec - TARGET_LIMITS_WINDOW_SEC);
-    insert.run("s1", "t-fresh", 5, nowSec - 1);
+    insert.run("ws-1", "s1", "t-old", 5, nowSec - TARGET_LIMITS_WINDOW_SEC - 1);
+    insert.run("ws-1", "s1", "t-boundary", 5, nowSec - TARGET_LIMITS_WINDOW_SEC);
+    insert.run("ws-1", "s1", "t-fresh", 5, nowSec - 1);
 
     runRetentionOnce(ctx.db, nowMs);
 

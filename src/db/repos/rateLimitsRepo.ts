@@ -6,68 +6,70 @@ export interface RateLimitRow {
 }
 
 export interface RateLimitsRepo {
-  get(userId: string): RateLimitRow | undefined;
-  reset(userId: string, now: number): void;
-  increment(userId: string): void;
-  /**
-   * Atomically check-and-increment in a single SQLite transaction.
-   * Returns true if the request is allowed (counter incremented or
-   * window reset), false if the rate limit is exhausted.
-   */
+  get(workspaceId: string, userId: string): RateLimitRow | undefined;
+  reset(workspaceId: string, userId: string, now: number): void;
+  increment(workspaceId: string, userId: string): void;
   checkAndIncrement(
+    workspaceId: string,
     userId: string,
     now: number,
     limit: number,
     windowSecs: number,
   ): boolean;
-  /** Delete rows whose window_start is older than windowStartCutoff. */
   purgeOlderThan(windowStartCutoff: number): number;
+  deleteForWorkspace(workspaceId: string): number;
 }
 
 export function makeRateLimitsRepo(db: Database.Database): RateLimitsRepo {
   const getStmt = db.prepare(
-    "SELECT msg_count, window_start FROM rate_limits WHERE user_id = ?",
+    "SELECT msg_count, window_start FROM rate_limits WHERE workspace_id = ? AND user_id = ?",
   );
   const resetStmt = db.prepare(
-    "INSERT INTO rate_limits (user_id, msg_count, window_start) " +
-      "VALUES (?, 1, ?) " +
-      "ON CONFLICT(user_id) DO UPDATE SET msg_count = 1, window_start = excluded.window_start",
+    "INSERT INTO rate_limits (workspace_id, user_id, msg_count, window_start) " +
+      "VALUES (?, ?, 1, ?) " +
+      "ON CONFLICT(workspace_id, user_id) DO UPDATE SET msg_count = 1, window_start = excluded.window_start",
   );
   const incrementStmt = db.prepare(
-    "UPDATE rate_limits SET msg_count = msg_count + 1 WHERE user_id = ?",
+    "UPDATE rate_limits SET msg_count = msg_count + 1 WHERE workspace_id = ? AND user_id = ?",
   );
   const purgeStmt = db.prepare(
     "DELETE FROM rate_limits WHERE window_start < ?",
   );
+  const deleteForWorkspaceStmt = db.prepare(
+    "DELETE FROM rate_limits WHERE workspace_id = ?",
+  );
 
   const checkAndIncrementFn = db.transaction(
-    (userId: string, now: number, limit: number, windowSecs: number): boolean => {
-      const row = getStmt.get(userId) as RateLimitRow | undefined;
+    (workspaceId: string, userId: string, now: number, limit: number, windowSecs: number): boolean => {
+      const row = getStmt.get(workspaceId, userId) as RateLimitRow | undefined;
       if (!row || now - row.window_start > windowSecs) {
-        resetStmt.run(userId, now);
+        resetStmt.run(workspaceId, userId, now);
         return true;
       }
       if (row.msg_count >= limit) return false;
-      incrementStmt.run(userId);
+      incrementStmt.run(workspaceId, userId);
       return true;
     },
   );
 
   return {
-    get(userId) {
-      return getStmt.get(userId) as RateLimitRow | undefined;
+    get(workspaceId, userId) {
+      return getStmt.get(workspaceId, userId) as RateLimitRow | undefined;
     },
-    reset(userId, now) {
-      resetStmt.run(userId, now);
+    reset(workspaceId, userId, now) {
+      resetStmt.run(workspaceId, userId, now);
     },
-    increment(userId) {
-      incrementStmt.run(userId);
+    increment(workspaceId, userId) {
+      incrementStmt.run(workspaceId, userId);
     },
-    checkAndIncrement(userId, now, limit, windowSecs) {
-      return checkAndIncrementFn(userId, now, limit, windowSecs) as boolean;
+    checkAndIncrement(workspaceId, userId, now, limit, windowSecs) {
+      return checkAndIncrementFn(workspaceId, userId, now, limit, windowSecs) as boolean;
     },
     purgeOlderThan(windowStartCutoff) {
       return purgeStmt.run(windowStartCutoff).changes;
+    },
+    deleteForWorkspace(workspaceId) {
+      return deleteForWorkspaceStmt.run(workspaceId).changes;
     },
   };
 }

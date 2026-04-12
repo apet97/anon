@@ -115,11 +115,12 @@ These already exist in the prototype and should be preserved through migrations:
 
 #### `conversations`
 
-Stores conversation identity, the latest message preview, and the routing context for reply-button handling.
+Stores conversation identity, the latest message preview, and the routing context for reply-button handling. Every row is tagged with `workspace_id` for multi-workspace isolation.
 
 ```sql
 CREATE TABLE conversations (
   id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
   sender_id TEXT NOT NULL,
   recipient_id TEXT NOT NULL,         -- empty string for channel/thread posts
   last_message TEXT,
@@ -132,14 +133,16 @@ CREATE TABLE conversations (
 );
 ```
 
-The `message_type`, `channel_id`, and `thread_root_id` columns were added in migration `006_channel_thread.sql` to support the three `/anon` contexts. The reply modal submit handler reads `message_type` to decide whether the reply goes back as a DM (`anonMessage.send`) or as a thread reply under the original channel post (`anonMessage.replyInThread` using `thread_root_id` as the Pumble message ID).
+The `message_type`, `channel_id`, and `thread_root_id` columns were added in migration `006_channel_thread.sql`. The `workspace_id` column was added in migration `007_workspace_scope.sql`. The reply modal submit handler reads `message_type` to decide whether the reply goes back as a DM (`anonMessage.send`) or as a thread reply under the original channel post (`anonMessage.replyInThread` using `thread_root_id` as the Pumble message ID).
 
 #### `blocked_users`
 
 ```sql
 CREATE TABLE blocked_users (
-  user_id TEXT PRIMARY KEY,
-  blocked_at INTEGER NOT NULL DEFAULT (unixepoch())
+  workspace_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  blocked_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY (workspace_id, user_id)
 );
 ```
 
@@ -147,9 +150,11 @@ CREATE TABLE blocked_users (
 
 ```sql
 CREATE TABLE rate_limits (
-  user_id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
   msg_count INTEGER NOT NULL DEFAULT 0,
-  window_start INTEGER NOT NULL DEFAULT (unixepoch())
+  window_start INTEGER NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY (workspace_id, user_id)
 );
 ```
 
@@ -157,11 +162,12 @@ CREATE TABLE rate_limits (
 
 ```sql
 CREATE TABLE target_limits (
+  workspace_id TEXT NOT NULL,
   sender_id TEXT NOT NULL,
   target_id TEXT NOT NULL,
   msg_count INTEGER NOT NULL DEFAULT 0,
   window_start INTEGER NOT NULL DEFAULT (unixepoch()),
-  PRIMARY KEY (sender_id, target_id)
+  PRIMARY KEY (workspace_id, sender_id, target_id)
 );
 ```
 
@@ -169,8 +175,10 @@ CREATE TABLE target_limits (
 
 ```sql
 CREATE TABLE config (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL
+  workspace_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  PRIMARY KEY (workspace_id, key)
 );
 ```
 

@@ -52,7 +52,7 @@ describe("/anon command", () => {
 
   it("rejects messages to a blocked recipient", async () => {
     const deps = makeTestDeps();
-    deps.repos.blockedUsers.block("recipient-1");
+    deps.repos.blockedUsers.block("ws-1", "recipient-1");
     const handler = makeAnonCommand(deps).handler;
     const ctx = makeSlashCommandCtx({
       userId: "sender-1",

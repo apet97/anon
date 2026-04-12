@@ -7,7 +7,7 @@ import { makeFakePumbleClient } from "../helpers/pumbleClient";
 describe("anonMessage.send", () => {
   it("posts to the recipient's DM channel and attaches reply+report buttons", async () => {
     const { repos } = makeTestDb();
-    repos.conversations.insert("c1", "sender-1", "recipient-1");
+    repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");
     const svc = makeAnonMessageService({
       conversations: repos.conversations,
       logger: makeTestLogger(),

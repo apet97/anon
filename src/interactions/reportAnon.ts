@@ -71,7 +71,7 @@ export function makeReportAnonHandler(deps: AppDeps): ReportAnonHandler {
       return;
     }
 
-    const reportChannelId = await deps.reportChannel.getOrCreate(client);
+    const reportChannelId = await deps.reportChannel.getOrCreate(client, ctx.payload.workspaceId);
     if (!reportChannelId) {
       await ctx.ack();
       return;

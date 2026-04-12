@@ -20,15 +20,23 @@ export function makeAppUninstalledHandler(deps: AppDeps): EventHandler {
     const workspaceId = ctx.payload.workspaceId;
 
     let pendingRemoved = 0;
+    let blockedRemoved = 0;
+    let rateLimitsRemoved = 0;
+    let targetLimitsRemoved = 0;
+    let configRemoved = 0;
     if (workspaceId) {
       await deps.credentialsStore.deleteForWorkspace(workspaceId);
       pendingRemoved = deps.pendingRepliesRepo.deleteForWorkspace(workspaceId);
+      blockedRemoved = deps.repos.blockedUsers.deleteForWorkspace(workspaceId);
+      rateLimitsRemoved = deps.repos.rateLimits.deleteForWorkspace(workspaceId);
+      targetLimitsRemoved = deps.repos.targetLimits.deleteForWorkspace(workspaceId);
+      configRemoved = deps.repos.config.deleteForWorkspace(workspaceId);
     }
 
     deps.auditLog.record({
       eventType: "APP_UNINSTALLED",
       workspaceId,
-      metadata: { pendingRemoved },
+      metadata: { pendingRemoved, blockedRemoved, rateLimitsRemoved, targetLimitsRemoved, configRemoved },
     });
 
     deps.logger.warn(
@@ -36,6 +44,10 @@ export function makeAppUninstalledHandler(deps: AppDeps): EventHandler {
         eventType: "APP_UNINSTALLED",
         workspaceId,
         pendingRemoved,
+        blockedRemoved,
+        rateLimitsRemoved,
+        targetLimitsRemoved,
+        configRemoved,
         outcome: workspaceId ? "cleaned" : "incomplete-payload",
       },
       "app uninstalled event processed",

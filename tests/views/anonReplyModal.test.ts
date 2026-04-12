@@ -10,7 +10,7 @@ import { makeFakePumbleClient } from "../helpers/pumbleClient";
 describe("anon_reply_modal submit", () => {
   it("sends a reply, flips the direction, and clears pending state", async () => {
     const deps = makeTestDeps();
-    deps.repos.conversations.insert("c1", "sender-1", "recipient-1");
+    deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");
     await deps.pendingReplies.set("ws-1", "recipient-1", {
       convId: "c1",
       direction: "recipient",
@@ -56,8 +56,8 @@ describe("anon_reply_modal submit", () => {
 
   it("writes an audit row with outcome=reply-failed when postMessage throws", async () => {
     const deps = makeTestDeps();
-    deps.repos.conversations.insert("c1", "sender-1", "recipient-1");
-    deps.repos.conversations.insert("c1", "sender-1", "recipient-1");
+    deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");
+    deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");
     await deps.pendingReplies.set("ws-1", "recipient-1", {
       convId: "c1",
       direction: "recipient",
@@ -92,7 +92,7 @@ describe("anon_reply_modal submit", () => {
 
   it("rejects replies longer than 2000 chars without posting", async () => {
     const deps = makeTestDeps();
-    deps.repos.conversations.insert("c1", "sender-1", "recipient-1");
+    deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");
     await deps.pendingReplies.set("ws-1", "recipient-1", {
       convId: "c1",
       direction: "recipient",
@@ -112,7 +112,7 @@ describe("anon_reply_modal submit", () => {
 
   it("sends a message when all guards pass", async () => {
     const deps = makeTestDeps();
-    deps.repos.conversations.insert("c1", "sender-1", "recipient-1");
+    deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");
     await deps.pendingReplies.set("ws-1", "recipient-1", {
       convId: "c1",
       direction: "recipient",
@@ -134,7 +134,7 @@ describe("anon_reply_modal submit", () => {
 
   it("does not send when the global rate-limit is exhausted", async () => {
     const deps = makeTestDeps();
-    deps.repos.conversations.insert("c1", "sender-1", "recipient-1");
+    deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");
     await deps.pendingReplies.set("ws-1", "recipient-1", {
       convId: "c1",
       direction: "recipient",
@@ -161,7 +161,7 @@ describe("anon_reply_modal submit", () => {
 
   it("does not send when the recipient is blocked and leaves the pending row intact", async () => {
     const deps = makeTestDeps();
-    deps.repos.conversations.insert("c1", "sender-1", "recipient-1");
+    deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");
     await deps.pendingReplies.set("ws-1", "recipient-1", {
       convId: "c1",
       direction: "recipient",
@@ -186,7 +186,7 @@ describe("anon_reply_modal submit", () => {
 
   it("keeps the pending row when postMessageToChannel throws", async () => {
     const deps = makeTestDeps();
-    deps.repos.conversations.insert("c1", "sender-1", "recipient-1");
+    deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");
     await deps.pendingReplies.set("ws-1", "recipient-1", {
       convId: "c1",
       direction: "recipient",

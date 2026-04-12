@@ -17,7 +17,7 @@ function makeEventCtx(payload: Record<string, unknown>) {
 }
 
 describe("APP_UNINSTALLED lifecycle cleanup", () => {
-  it("deletes every token row for the workspace and purges pending replies", async () => {
+  it("deletes every token row for the workspace and purges all workspace-scoped data", async () => {
     const deps = makeTestDeps({ useSqlitePendingReplies: true });
     await deps.credentialsStore.saveTokens({
       workspaceId: "ws-1",
@@ -38,6 +38,12 @@ describe("APP_UNINSTALLED lifecycle cleanup", () => {
       convId: "c2",
       direction: "sender",
     });
+    deps.repos.blockedUsers.block("ws-1", "u1");
+    deps.repos.config.set("ws-1", "report_channel_id", "rc-1");
+
+    // Also insert data for ws-2 to verify it survives
+    deps.repos.blockedUsers.block("ws-2", "u1");
+    deps.repos.config.set("ws-2", "report_channel_id", "rc-2");
 
     const handler = makeAppUninstalledHandler(deps);
     await handler(makeEventCtx({ workspaceId: "ws-1" }));
@@ -46,6 +52,12 @@ describe("APP_UNINSTALLED lifecycle cleanup", () => {
     expect(await deps.credentialsStore.getUserToken("ws-1", "u1")).toBeUndefined();
     expect(deps.pendingRepliesRepo.get("ws-1", "u1")).toBeUndefined();
     expect(deps.pendingRepliesRepo.get("ws-1", "u2")).toBeUndefined();
+    expect(deps.repos.blockedUsers.isBlocked("ws-1", "u1")).toBe(false);
+    expect(deps.repos.config.get("ws-1", "report_channel_id")).toBeUndefined();
+
+    // ws-2 data survives
+    expect(deps.repos.blockedUsers.isBlocked("ws-2", "u1")).toBe(true);
+    expect(deps.repos.config.get("ws-2", "report_channel_id")).toBe("rc-2");
 
     // Audit row recorded
     const recent = deps.auditLog.listRecent(10);

@@ -15,6 +15,7 @@ export function makeAnonCommand(deps: AppDeps): AnonCommand {
       await ctx.ack();
 
       const senderId = ctx.payload.userId;
+      const workspaceId = ctx.payload.workspaceId;
       const text = ctx.payload.text;
       const parsed = parseRecipient(text);
 
@@ -23,11 +24,11 @@ export function makeAnonCommand(deps: AppDeps): AnonCommand {
           await ctx.say("Usage: `/anon @user your message`", "ephemeral");
           return;
         }
-        await handleDm(deps, ctx, senderId, parsed.userId, parsed.message);
+        await handleDm(deps, ctx, workspaceId, senderId, parsed.userId, parsed.message);
       } else if (ctx.payload.threadRootId) {
-        await handleThread(deps, ctx, senderId, text.trim());
+        await handleThread(deps, ctx, workspaceId, senderId, text.trim());
       } else {
-        await handleChannel(deps, ctx, senderId, text.trim());
+        await handleChannel(deps, ctx, workspaceId, senderId, text.trim());
       }
     },
   };
@@ -37,13 +38,13 @@ export function makeAnonCommand(deps: AppDeps): AnonCommand {
 type Ctx = any;
 
 async function handleDm(
-  deps: AppDeps, ctx: Ctx, senderId: string, recipientId: string, message: string,
+  deps: AppDeps, ctx: Ctx, workspaceId: string, senderId: string, recipientId: string, message: string,
 ): Promise<void> {
   if (senderId === recipientId) {
     await ctx.say("You can't send an anonymous message to yourself.", "ephemeral");
     return;
   }
-  if (deps.repos.blockedUsers.isBlocked(recipientId)) {
+  if (deps.repos.blockedUsers.isBlocked(workspaceId, recipientId)) {
     await ctx.say("This user has opted out of anonymous messages.", "ephemeral");
     return;
   }
@@ -51,11 +52,11 @@ async function handleDm(
     await ctx.say(`Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters.`, "ephemeral");
     return;
   }
-  if (!deps.rateLimit.checkGlobal(senderId)) {
+  if (!deps.rateLimit.checkGlobal(workspaceId, senderId)) {
     await ctx.say("Slow down! You can send up to 5 anonymous messages per minute.", "ephemeral");
     return;
   }
-  if (!deps.rateLimit.checkTarget(senderId, recipientId)) {
+  if (!deps.rateLimit.checkTarget(workspaceId, senderId, recipientId)) {
     await ctx.say("You've reached the limit for messages to this person. Try again later.", "ephemeral");
     return;
   }
@@ -73,17 +74,17 @@ async function handleDm(
       messageText: message, convId, direction: "recipient",
     });
     if (sent) {
-      deps.repos.conversations.insert(convId, senderId, recipientId);
+      deps.repos.conversations.insert(convId, workspaceId, senderId, recipientId);
       deps.logger.info({ eventType: "SEND", convId, outcome: "ok" }, "anon message delivered");
       deps.auditLog.record({
-        eventType: "SEND", workspaceId: ctx.payload.workspaceId,
+        eventType: "SEND", workspaceId,
         actorId: senderId, targetId: recipientId, convId, metadata: { outcome: "ok" },
       });
       await ctx.say("Anonymous message sent.", "ephemeral");
     } else {
       deps.logger.warn({ eventType: "SEND", convId, outcome: "no-channel" }, "anon message not delivered");
       deps.auditLog.record({
-        eventType: "SEND", workspaceId: ctx.payload.workspaceId,
+        eventType: "SEND", workspaceId,
         actorId: senderId, targetId: recipientId, convId, metadata: { outcome: "no-channel" },
       });
       await ctx.say("Could not deliver message. The recipient may not be reachable.", "ephemeral");
@@ -94,7 +95,7 @@ async function handleDm(
       "failed to send anonymous message",
     );
     deps.auditLog.record({
-      eventType: "SEND", workspaceId: ctx.payload.workspaceId,
+      eventType: "SEND", workspaceId,
       actorId: senderId, targetId: recipientId, convId,
       metadata: { outcome: "send-failed", err: (err as Error).message },
     });
@@ -103,7 +104,7 @@ async function handleDm(
 }
 
 async function handleChannel(
-  deps: AppDeps, ctx: Ctx, senderId: string, message: string,
+  deps: AppDeps, ctx: Ctx, workspaceId: string, senderId: string, message: string,
 ): Promise<void> {
   if (!message) {
     await ctx.say("Usage: `/anon your message` to post anonymously in this channel.", "ephemeral");
@@ -113,11 +114,11 @@ async function handleChannel(
     await ctx.say(`Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters.`, "ephemeral");
     return;
   }
-  if (!deps.rateLimit.checkGlobal(senderId)) {
+  if (!deps.rateLimit.checkGlobal(workspaceId, senderId)) {
     await ctx.say("Slow down! You can send up to 5 anonymous messages per minute.", "ephemeral");
     return;
   }
-  if (!deps.rateLimit.checkTarget(senderId, ctx.payload.channelId)) {
+  if (!deps.rateLimit.checkTarget(workspaceId, senderId, ctx.payload.channelId)) {
     await ctx.say("You've reached the limit for anonymous messages in this channel. Try again later.", "ephemeral");
     return;
   }
@@ -132,10 +133,10 @@ async function handleChannel(
 
   try {
     await deps.anonMessage.sendToChannel({ client, channelId, messageText: message, convId });
-    deps.repos.conversations.insertChannel(convId, senderId, channelId, "channel");
+    deps.repos.conversations.insertChannel(convId, workspaceId, senderId, channelId, "channel");
     deps.logger.info({ eventType: "SEND_CHANNEL", convId, outcome: "ok" }, "anon channel message posted");
     deps.auditLog.record({
-      eventType: "SEND_CHANNEL", workspaceId: ctx.payload.workspaceId,
+      eventType: "SEND_CHANNEL", workspaceId,
       actorId: senderId, convId, metadata: { outcome: "ok", channelId },
     });
     await ctx.say("Anonymous message posted.", "ephemeral");
@@ -145,7 +146,7 @@ async function handleChannel(
       "failed to post anonymous channel message",
     );
     deps.auditLog.record({
-      eventType: "SEND_CHANNEL", workspaceId: ctx.payload.workspaceId,
+      eventType: "SEND_CHANNEL", workspaceId,
       actorId: senderId, convId, metadata: { outcome: "send-failed", err: (err as Error).message },
     });
     await ctx.say("Something went wrong. Try again later.", "ephemeral");
@@ -153,7 +154,7 @@ async function handleChannel(
 }
 
 async function handleThread(
-  deps: AppDeps, ctx: Ctx, senderId: string, message: string,
+  deps: AppDeps, ctx: Ctx, workspaceId: string, senderId: string, message: string,
 ): Promise<void> {
   if (!message) {
     await ctx.say("Usage: `/anon your message` to reply anonymously in this thread.", "ephemeral");
@@ -163,11 +164,11 @@ async function handleThread(
     await ctx.say(`Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters.`, "ephemeral");
     return;
   }
-  if (!deps.rateLimit.checkGlobal(senderId)) {
+  if (!deps.rateLimit.checkGlobal(workspaceId, senderId)) {
     await ctx.say("Slow down! You can send up to 5 anonymous messages per minute.", "ephemeral");
     return;
   }
-  if (!deps.rateLimit.checkTarget(senderId, ctx.payload.channelId)) {
+  if (!deps.rateLimit.checkTarget(workspaceId, senderId, ctx.payload.channelId)) {
     await ctx.say("You've reached the limit for anonymous messages in this channel. Try again later.", "ephemeral");
     return;
   }
@@ -183,10 +184,10 @@ async function handleThread(
 
   try {
     await deps.anonMessage.replyInThread({ client, threadRootId, channelId, messageText: message, convId });
-    deps.repos.conversations.insertChannel(convId, senderId, channelId, "thread", threadRootId);
+    deps.repos.conversations.insertChannel(convId, workspaceId, senderId, channelId, "thread", threadRootId);
     deps.logger.info({ eventType: "SEND_THREAD", convId, outcome: "ok" }, "anon thread reply posted");
     deps.auditLog.record({
-      eventType: "SEND_THREAD", workspaceId: ctx.payload.workspaceId,
+      eventType: "SEND_THREAD", workspaceId,
       actorId: senderId, convId, metadata: { outcome: "ok", channelId, threadRootId },
     });
     await ctx.say("Anonymous reply posted in thread.", "ephemeral");
@@ -196,7 +197,7 @@ async function handleThread(
       "failed to post anonymous thread reply",
     );
     deps.auditLog.record({
-      eventType: "SEND_THREAD", workspaceId: ctx.payload.workspaceId,
+      eventType: "SEND_THREAD", workspaceId,
       actorId: senderId, convId, metadata: { outcome: "send-failed", err: (err as Error).message },
     });
     await ctx.say("Something went wrong. Try again later.", "ephemeral");

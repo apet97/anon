@@ -129,6 +129,7 @@ Anon is **pseudonymous with admin accountability**, not true anonymity. Read the
 - **Recipients never learn who sent a message.** The bot posts on behalf of the sender; nothing in the message blocks, text, or metadata visible to recipients reveals their identity.
 - **Workspace admins can learn on demand.** When any recipient clicks **Report**, the sender's workspace user ID is posted to the private `#abot-reports` channel. Every workspace OWNER and ADMIN is automatically invited to that channel on its first creation.
 - **Bot operators can learn from the database.** The SQLite `conversations` table records `sender_id` for every message so the report flow works. Anyone with read access to the production database can therefore de-anonymize messages. Treat that database accordingly — see [`SECURITY.md`](./SECURITY.md).
+- **Multi-workspace safe.** Every table is scoped by `workspace_id`. Installing Anon on multiple workspaces creates fully isolated data — block lists, rate limits, report channels, and conversations never cross workspace boundaries.
 - **Logs never contain message bodies.** The pino logger redacts raw text; only IDs, event types, and outcomes are logged.
 
 Anon is safe for candid peer feedback inside a company. It is **not** safe as a whistleblower or source-protection tool against the workspace's own administrators.

@@ -10,7 +10,7 @@ export function makeAnonBlockCommand(deps: AppDeps): AnonCommand {
     usageHint: "/anon-block",
     handler: async (ctx) => {
       await ctx.ack();
-      deps.repos.blockedUsers.block(ctx.payload.userId);
+      deps.repos.blockedUsers.block(ctx.payload.workspaceId, ctx.payload.userId);
       deps.logger.info(
         { eventType: "BLOCK", actorId: ctx.payload.userId, outcome: "ok" },
         "user blocked anonymous messages",

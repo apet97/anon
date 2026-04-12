@@ -52,7 +52,9 @@ Detection lives in `src/commands/anon.ts`. DM takes priority over thread context
 - Migrations are forward-only; never edit existing `.sql` files. New migrations get new numbers.
 - Rate-limit check-and-increment is a single atomic SQLite transaction (`repo.checkAndIncrement`).
 - `openDb()` sets WAL, `busy_timeout=5000`, `synchronous=NORMAL`, 10 MB WAL cap.
-- The `conversations` table has `message_type` (`'dm' | 'channel' | 'thread'`), `channel_id`, and `thread_root_id` columns for channel/thread replies. The `thread_root_id` is captured from Pumble's response to `postMessageToChannel()` so replies can call `client.v1.messages.reply()` with a real message ID.
+- **Every table is workspace-scoped.** All repo methods take `workspaceId` as their first parameter. Handlers extract it from `ctx.payload.workspaceId`. The `config` table PK is `(workspace_id, key)`, not just `key`.
+- The `conversations` table has `workspace_id`, `message_type` (`'dm' | 'channel' | 'thread'`), `channel_id`, and `thread_root_id` columns. The `thread_root_id` is captured from Pumble's response to `postMessageToChannel()` so replies can call `client.v1.messages.reply()` with a real message ID.
+- The `reportChannel` service uses a `Map<workspaceId, Promise>` in-flight guard so concurrent first-reports in the same workspace share one channel-creation promise, while different workspaces create independently.
 
 ## Reply flow routing
 

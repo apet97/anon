@@ -40,10 +40,12 @@ Anon exists to solve three problems in Pumble workspaces:
 
 - True anonymity from operators or admins
 - Group anonymous messaging
-- Cross-workspace messaging
+- Cross-workspace messaging (messages between different workspaces)
 - Anonymous file sharing
 - Full moderation dashboard
 - Rich content authoring beyond simple text + bot blocks
+
+Multi-workspace tenancy (simultaneous installation on multiple workspaces with full data isolation) is supported as of migration 007.
 
 ## 5. Users
 
