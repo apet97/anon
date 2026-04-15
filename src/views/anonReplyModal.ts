@@ -66,7 +66,9 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
       return;
     }
 
-    const conv = deps.repos.conversations.get(pending.convId);
+    // C-3: scope by workspaceId so a leaked convId from another workspace
+    // can never surface a row here.
+    const conv = deps.repos.conversations.get(workspaceId, pending.convId);
     if (!conv) {
       deps.logger.error(
         { eventType: "REPLY", convId: pending.convId, outcome: "conv-not-found" },

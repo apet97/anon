@@ -29,7 +29,14 @@ export interface ConversationsRepo {
     lastMessage: string,
     threadRootId?: string,
   ): void;
-  get(id: string): ConversationRow | undefined;
+  /**
+   * Scoped read. A caller in `ws-A` can never observe a row from `ws-B`
+   * even if it guesses the convId (finding C-3). The SQL `AND workspace_id = ?`
+   * is the enforcement point; the composite-PK migration is a separate
+   * follow-up so this layer stays backwards-compatible with the current
+   * schema shape.
+   */
+  get(workspaceId: string, id: string): ConversationRow | undefined;
   updateThreadRootId(id: string, threadRootId: string): void;
   purgeOlderThan(unixSec: number): number;
 }
@@ -44,7 +51,7 @@ export function makeConversationsRepo(db: Database.Database): ConversationsRepo 
     "INSERT OR IGNORE INTO conversations (id, workspace_id, sender_id, recipient_id, message_type, channel_id, thread_root_id, last_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
   );
   const getStmt = db.prepare(
-    "SELECT sender_id, recipient_id, last_message, message_type, channel_id, thread_root_id, workspace_id FROM conversations WHERE id = ?",
+    "SELECT sender_id, recipient_id, last_message, message_type, channel_id, thread_root_id, workspace_id FROM conversations WHERE id = ? AND workspace_id = ?",
   );
   const updateThreadRootIdStmt = db.prepare(
     "UPDATE conversations SET thread_root_id = ? WHERE id = ?",
@@ -69,8 +76,8 @@ export function makeConversationsRepo(db: Database.Database): ConversationsRepo 
         lastMessage,
       );
     },
-    get(id) {
-      return getStmt.get(id) as ConversationRow | undefined;
+    get(workspaceId, id) {
+      return getStmt.get(id, workspaceId) as ConversationRow | undefined;
     },
     updateThreadRootId(id, threadRootId) {
       updateThreadRootIdStmt.run(threadRootId, id);

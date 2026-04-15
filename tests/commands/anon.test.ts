@@ -146,7 +146,7 @@ describe("/anon command", () => {
     expect(client.channelPosts[0]!.channelId).toBe("ch-general");
     expect(client.channelPosts[0]!.body.text).toBe("Anonymous: hello channel");
     expect(ctx.sayCalls.at(-1)?.text).toMatch(/Anonymous message posted/);
-    const conv = deps.repos.conversations.get(client.channelPosts[0]!.body.blocks[1].elements[0].value.split(":")[0]!);
+    const conv = deps.repos.conversations.get("ws-1", client.channelPosts[0]!.body.blocks[1].elements[0].value.split(":")[0]!);
     expect(conv?.message_type).toBe("channel");
     expect(conv?.channel_id).toBe("ch-general");
   });
@@ -242,7 +242,7 @@ describe("/anon command", () => {
     expect(client.posts).toHaveLength(1);
     const convId = (client.posts[0]!.body.blocks[1].elements[0].value as string)
       .split(":")[0]!;
-    const conv = deps.repos.conversations.get(convId);
+    const conv = deps.repos.conversations.get("ws-1", convId);
     expect(conv).toBeDefined();
     expect(conv!.last_message).toBe("hello world");
     expect(conv!.message_type).toBe("dm");
@@ -269,7 +269,7 @@ describe("/anon command", () => {
     expect(client.channelPosts).toHaveLength(1);
     const convId = (client.channelPosts[0]!.body.blocks[1].elements[0].value as string)
       .split(":")[0]!;
-    const conv = deps.repos.conversations.get(convId);
+    const conv = deps.repos.conversations.get("ws-1", convId);
     expect(conv).toBeDefined();
     expect(conv!.last_message).toBe("hello channel");
     expect(conv!.message_type).toBe("channel");
@@ -298,7 +298,7 @@ describe("/anon command", () => {
     // the test is independent of the randomUUID() output.
     const convId = (client.threadReplies[0]!.body.blocks[1].elements[0].value as string)
       .split(":")[0]!;
-    const conv = deps.repos.conversations.get(convId);
+    const conv = deps.repos.conversations.get("ws-1", convId);
     expect(conv).toBeDefined();
     expect(conv!.last_message).toBe("good point");
     expect(conv!.message_type).toBe("thread");

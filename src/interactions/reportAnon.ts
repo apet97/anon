@@ -46,7 +46,8 @@ export function makeReportAnonHandler(deps: AppDeps): ReportAnonHandler {
       return;
     }
 
-    const conv = deps.repos.conversations.get(convId);
+    // C-3: scope by workspaceId so a convId can never cross workspace boundaries.
+    const conv = deps.repos.conversations.get(ctx.payload.workspaceId, convId);
     if (!conv) {
       deps.logger.warn(
         { eventType: "REPORT", convId, outcome: "conv-not-found" },
