@@ -64,10 +64,7 @@ export function makeTestDeps(overrides: MakeTestDepsOverrides = {}): TestDeps {
     targetLimits: repos.targetLimits,
     ...(overrides.now ? { now: overrides.now } : {}),
   });
-  const anonMessage = makeAnonMessageService({
-    conversations: repos.conversations,
-    logger,
-  });
+  const anonMessage = makeAnonMessageService({ logger });
   const reportChannel = makeReportChannelService({
     config: repos.config,
     logger,

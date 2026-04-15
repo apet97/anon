@@ -27,8 +27,7 @@ describe("report_anon interaction", () => {
 
   it("posts an abuse report after the conversation and channel resolve", async () => {
     const deps = makeTestDeps();
-    deps.repos.conversations.insert("c1", WS, "sender-1", "recipient-1");
-    deps.repos.conversations.updateLastMessage("c1", "something mean");
+    deps.repos.conversations.insert("c1", WS, "sender-1", "recipient-1", "something mean");
     deps.repos.config.set(WS, REPORT_CHANNEL_CONFIG_KEY, "report-channel-1");
     const client = makeFakePumbleClient();
     const handler = makeReportAnonHandler(deps);
@@ -51,8 +50,7 @@ describe("report_anon interaction", () => {
   it("truncates long previews to 200 characters", async () => {
     const deps = makeTestDeps();
     const longBody = "a".repeat(300);
-    deps.repos.conversations.insert("c1", WS, "sender-1", "recipient-1");
-    deps.repos.conversations.updateLastMessage("c1", longBody);
+    deps.repos.conversations.insert("c1", WS, "sender-1", "recipient-1", longBody);
     deps.repos.config.set(WS, REPORT_CHANNEL_CONFIG_KEY, "rc1");
     const client = makeFakePumbleClient();
     const handler = makeReportAnonHandler(deps);
@@ -87,8 +85,7 @@ describe("report_anon interaction", () => {
 
   it("flips the sender identity when direction=sender", async () => {
     const deps = makeTestDeps();
-    deps.repos.conversations.insert("c1", WS, "sender-1", "recipient-1");
-    deps.repos.conversations.updateLastMessage("c1", "reply body");
+    deps.repos.conversations.insert("c1", WS, "sender-1", "recipient-1", "reply body");
     deps.repos.config.set(WS, REPORT_CHANNEL_CONFIG_KEY, "rc1");
     const client = makeFakePumbleClient();
     const handler = makeReportAnonHandler(deps);
@@ -104,8 +101,7 @@ describe("report_anon interaction", () => {
 
   it("writes an audit row with outcome=post-failed when posting the report throws", async () => {
     const deps = makeTestDeps();
-    deps.repos.conversations.insert("c1", WS, "sender-1", "recipient-1");
-    deps.repos.conversations.updateLastMessage("c1", "hello");
+    deps.repos.conversations.insert("c1", WS, "sender-1", "recipient-1", "hello");
     deps.repos.config.set(WS, REPORT_CHANNEL_CONFIG_KEY, "rc1");
     const client = makeFakePumbleClient();
     client.v1.messages.postMessageToChannel = async () => {

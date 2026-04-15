@@ -87,10 +87,7 @@ async function main(): Promise<void> {
       rateLimits: repos.rateLimits,
       targetLimits: repos.targetLimits,
     });
-    const anonMessage = makeAnonMessageService({
-      conversations: repos.conversations,
-      logger,
-    });
+    const anonMessage = makeAnonMessageService({ logger });
     const reportChannel = makeReportChannelService({
       config: repos.config,
       logger,

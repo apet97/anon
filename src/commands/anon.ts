@@ -132,13 +132,17 @@ async function handleDm(
   if (!client) return;
 
   const convId = randomUUID();
+  // C-1 ordering: write the conversation row (with last_message) BEFORE the
+  // Pumble call so the admin Report flow has real content. INSERT OR IGNORE
+  // keeps retries on the same convId idempotent; orphan rows on Pumble
+  // failure carry the sender's identity for audit review.
+  deps.repos.conversations.insert(convId, workspaceId, senderId, recipientId, message);
   try {
     const sent = await deps.anonMessage.send({
       client, targetId: recipientId, label: "Anonymous message",
       messageText: message, convId, direction: "recipient",
     });
     if (sent) {
-      deps.repos.conversations.insert(convId, workspaceId, senderId, recipientId);
       deps.logger.info({ eventType: "SEND", convId, outcome: "ok" }, "anon message delivered");
       deps.auditLog.record({
         eventType: "SEND", workspaceId,
@@ -181,9 +185,15 @@ async function handleChannel(
   if (!client) return;
 
   const convId = randomUUID();
+  // C-1/C-2 ordering: insert the row (with last_message) first; capture the
+  // Pumble messageId from sendToChannel and persist it as thread_root_id so
+  // subsequent `Reply Anonymously` actions can thread onto the real message.
+  deps.repos.conversations.insertChannel(convId, workspaceId, senderId, channelId, "channel", message);
   try {
-    await deps.anonMessage.sendToChannel({ client, channelId, messageText: message, convId });
-    deps.repos.conversations.insertChannel(convId, workspaceId, senderId, channelId, "channel");
+    const messageId = await deps.anonMessage.sendToChannel({ client, channelId, messageText: message, convId });
+    if (messageId) {
+      deps.repos.conversations.updateThreadRootId(convId, messageId);
+    }
     deps.logger.info({ eventType: "SEND_CHANNEL", convId, outcome: "ok" }, "anon channel message posted");
     deps.auditLog.record({
       eventType: "SEND_CHANNEL", workspaceId,
@@ -220,9 +230,12 @@ async function handleThread(
   if (!client) return;
 
   const convId = randomUUID();
+  // C-1 ordering: row exists before the Pumble call. thread_root_id comes
+  // straight from ctx.payload (not Pumble's response) so no follow-up UPDATE
+  // is required.
+  deps.repos.conversations.insertChannel(convId, workspaceId, senderId, channelId, "thread", message, threadRootId);
   try {
     await deps.anonMessage.replyInThread({ client, threadRootId, channelId, messageText: message, convId });
-    deps.repos.conversations.insertChannel(convId, workspaceId, senderId, channelId, "thread", threadRootId);
     deps.logger.info({ eventType: "SEND_THREAD", convId, outcome: "ok" }, "anon thread reply posted");
     deps.auditLog.record({
       eventType: "SEND_THREAD", workspaceId,

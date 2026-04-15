@@ -42,7 +42,9 @@ export interface FakePumbleClient {
       addUsersToChannel(channelId: string, body: { userIds: string[] }): Promise<void>;
     };
     messages: {
-      postMessageToChannel(channelId: string, body: any): Promise<void>;
+      // Mirrors the real Pumble SDK: postMessageToChannel resolves with the
+      // created message object (we only need `id` for thread_root_id).
+      postMessageToChannel(channelId: string, body: any): Promise<{ id: string }>;
       reply(threadRootId: string, channelId: string, body: any): Promise<void>;
     };
     users: {
@@ -63,6 +65,7 @@ export function makeFakePumbleClient(
   const existingChannels = opts.existingChannels ?? [];
   const workspaceUsers = opts.workspaceUsers ?? [];
   const createChannelId = opts.createChannelId ?? "created-channel-1";
+  let postCounter = 0;
 
   return {
     posts,
@@ -90,6 +93,8 @@ export function makeFakePumbleClient(
         async postMessageToChannel(channelId, body) {
           posts.push({ channelId, body });
           channelPosts.push({ channelId, body });
+          postCounter += 1;
+          return { id: `fake-msg-${postCounter}` };
         },
         async reply(threadRootId, channelId, body) {
           threadReplies.push({ threadRootId, channelId, body });

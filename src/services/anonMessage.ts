@@ -1,5 +1,4 @@
 import type { ApiClient } from "pumble-sdk";
-import type { ConversationsRepo } from "../db/repos/conversationsRepo";
 import type { Logger } from "../logger";
 import type { ReplyDirection } from "./pendingReplies";
 
@@ -72,12 +71,18 @@ export interface ReplyInThreadArgs {
 
 export interface AnonMessageService {
   send(args: SendAnonMessageArgs): Promise<boolean>;
-  sendToChannel(args: SendToChannelArgs): Promise<boolean>;
+  /**
+   * Posts an anonymous channel message and returns the Pumble message id
+   * from the response (or `null` if Pumble did not return one). The caller
+   * is responsible for writing the id back to `conversations.thread_root_id`
+   * so that future `Reply Anonymously` actions can thread onto a real
+   * Pumble message. See findings C-1/C-2.
+   */
+  sendToChannel(args: SendToChannelArgs): Promise<string | null>;
   replyInThread(args: ReplyInThreadArgs): Promise<boolean>;
 }
 
 export interface AnonMessageDeps {
-  conversations: ConversationsRepo;
   logger: Logger;
 }
 
@@ -95,7 +100,6 @@ export function makeAnonMessageService(deps: AnonMessageDeps): AnonMessageServic
         text: `${label}: ${messageText}`,
         blocks: buildAnonBlocks(label, messageText, convId, direction),
       });
-      deps.conversations.updateLastMessage(convId, messageText);
       return true;
     },
 
@@ -104,11 +108,7 @@ export function makeAnonMessageService(deps: AnonMessageDeps): AnonMessageServic
         text: `Anonymous: ${messageText}`,
         blocks: buildAnonBlocks("Anonymous", messageText, convId, "recipient"),
       });
-      deps.conversations.updateLastMessage(convId, messageText);
-      if (msg?.id) {
-        deps.conversations.updateThreadRootId(convId, msg.id);
-      }
-      return true;
+      return msg?.id ?? null;
     },
 
     async replyInThread({ client, threadRootId, channelId, messageText, convId }) {
@@ -116,7 +116,6 @@ export function makeAnonMessageService(deps: AnonMessageDeps): AnonMessageServic
         text: `Anonymous: ${messageText}`,
         blocks: buildAnonBlocks("Anonymous", messageText, convId, "recipient"),
       });
-      deps.conversations.updateLastMessage(convId, messageText);
       return true;
     },
   };

@@ -43,8 +43,7 @@ describe("audit log coverage for sensitive events", () => {
 
   it("records a REPORT entry on abuse report", async () => {
     const deps = makeTestDeps();
-    deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");
-    deps.repos.conversations.updateLastMessage("c1", "private content");
+    deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1", "private content");
     deps.repos.config.set("ws-1", REPORT_CHANNEL_CONFIG_KEY, "rc1");
     const client = makeFakePumbleClient();
     const handler = makeReportAnonHandler(deps);

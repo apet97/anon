@@ -1,15 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { makeAnonMessageService } from "../../src/services/anonMessage";
-import { makeTestDb } from "../helpers/db";
 import { makeTestLogger } from "../helpers/logger";
 import { makeFakePumbleClient } from "../helpers/pumbleClient";
 
 describe("anonMessage.send", () => {
   it("posts to the recipient's DM channel and attaches reply+report buttons", async () => {
-    const { repos } = makeTestDb();
-    repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1");
     const svc = makeAnonMessageService({
-      conversations: repos.conversations,
       logger: makeTestLogger(),
     });
     const client = makeFakePumbleClient({ dmChannelId: "dm-1" });
@@ -41,7 +37,48 @@ describe("anonMessage.send", () => {
       value: "c1:recipient",
       style: "danger",
     });
-    // Last message saved for future report preview
-    expect(repos.conversations.get("c1")?.last_message).toBe("hello world");
+  });
+});
+
+describe("anonMessage.sendToChannel", () => {
+  it("returns the Pumble message id so the caller can write thread_root_id", async () => {
+    const svc = makeAnonMessageService({
+      logger: makeTestLogger(),
+    });
+    const client = makeFakePumbleClient();
+
+    const messageId = await svc.sendToChannel({
+      client: client as any,
+      channelId: "ch-general",
+      messageText: "hello channel",
+      convId: "c1",
+    });
+
+    expect(messageId).toBe("fake-msg-1");
+    expect(client.channelPosts).toHaveLength(1);
+    expect(client.channelPosts[0]!.channelId).toBe("ch-general");
+    expect(client.channelPosts[0]!.body.text).toBe("Anonymous: hello channel");
+  });
+});
+
+describe("anonMessage.replyInThread", () => {
+  it("posts to the given thread via client.v1.messages.reply without touching the DB", async () => {
+    const svc = makeAnonMessageService({
+      logger: makeTestLogger(),
+    });
+    const client = makeFakePumbleClient();
+
+    const ok = await svc.replyInThread({
+      client: client as any,
+      threadRootId: "root-1",
+      channelId: "ch-general",
+      messageText: "thread reply",
+      convId: "c1",
+    });
+
+    expect(ok).toBe(true);
+    expect(client.threadReplies).toHaveLength(1);
+    expect(client.threadReplies[0]!.threadRootId).toBe("root-1");
+    expect(client.threadReplies[0]!.channelId).toBe("ch-general");
   });
 });

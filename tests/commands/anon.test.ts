@@ -225,6 +225,87 @@ describe("/anon command", () => {
     expect(ctx.sayCalls[0]!.text).toMatch(/limit.*channel/i);
   });
 
+  // C-1 regression: last_message must be persisted on initial DM send so the
+  // admin Report flow has real content to display instead of "(message not available)".
+  it("persists last_message on the inserted conversation row after a DM send", async () => {
+    const deps = makeTestDeps();
+    const client = makeFakePumbleClient({ dmChannelId: "dm-1" });
+    const handler = makeAnonCommand(deps).handler;
+    const ctx = makeSlashCommandCtx({
+      userId: "sender-1",
+      text: "<<@recipient-1>> hello world",
+      botClient: client,
+    });
+
+    await handler(ctx as any);
+
+    expect(client.posts).toHaveLength(1);
+    const convId = (client.posts[0]!.body.blocks[1].elements[0].value as string)
+      .split(":")[0]!;
+    const conv = deps.repos.conversations.get(convId);
+    expect(conv).toBeDefined();
+    expect(conv!.last_message).toBe("hello world");
+    expect(conv!.message_type).toBe("dm");
+    expect(conv!.sender_id).toBe("sender-1");
+    expect(conv!.recipient_id).toBe("recipient-1");
+  });
+
+  // C-1 regression: last_message must be persisted for channel posts.
+  // C-2 regression: thread_root_id must equal the Pumble msg.id of the channel
+  // post so channel→thread reply can use a real Pumble message ID.
+  it("persists last_message and thread_root_id on a channel post", async () => {
+    const deps = makeTestDeps();
+    const client = makeFakePumbleClient();
+    const handler = makeAnonCommand(deps).handler;
+    const ctx = makeSlashCommandCtx({
+      userId: "sender-1",
+      text: "hello channel",
+      channelId: "ch-general",
+      botClient: client,
+    });
+
+    await handler(ctx as any);
+
+    expect(client.channelPosts).toHaveLength(1);
+    const convId = (client.channelPosts[0]!.body.blocks[1].elements[0].value as string)
+      .split(":")[0]!;
+    const conv = deps.repos.conversations.get(convId);
+    expect(conv).toBeDefined();
+    expect(conv!.last_message).toBe("hello channel");
+    expect(conv!.message_type).toBe("channel");
+    expect(conv!.channel_id).toBe("ch-general");
+    expect(conv!.thread_root_id).toBe("fake-msg-1");
+  });
+
+  // C-1 regression: last_message must be persisted for thread replies.
+  // thread_root_id comes from ctx.payload.threadRootId (not Pumble's response).
+  it("persists last_message and thread_root_id on a thread reply", async () => {
+    const deps = makeTestDeps();
+    const client = makeFakePumbleClient();
+    const handler = makeAnonCommand(deps).handler;
+    const ctx = makeSlashCommandCtx({
+      userId: "sender-1",
+      text: "good point",
+      channelId: "ch-general",
+      threadRootId: "thread-root-123",
+      botClient: client,
+    });
+
+    await handler(ctx as any);
+
+    expect(client.threadReplies).toHaveLength(1);
+    // The reply_anon button value carries convId:direction; pull it out so
+    // the test is independent of the randomUUID() output.
+    const convId = (client.threadReplies[0]!.body.blocks[1].elements[0].value as string)
+      .split(":")[0]!;
+    const conv = deps.repos.conversations.get(convId);
+    expect(conv).toBeDefined();
+    expect(conv!.last_message).toBe("good point");
+    expect(conv!.message_type).toBe("thread");
+    expect(conv!.channel_id).toBe("ch-general");
+    expect(conv!.thread_root_id).toBe("thread-root-123");
+  });
+
   it("writes an audit row with outcome=send-failed when postMessage throws", async () => {
     const deps = makeTestDeps();
     const client = makeFakePumbleClient({ dmChannelId: "dm-1" });

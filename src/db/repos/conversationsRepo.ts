@@ -13,26 +13,38 @@ export interface ConversationRow {
 }
 
 export interface ConversationsRepo {
-  insert(id: string, workspaceId: string, senderId: string, recipientId: string): void;
-  insertChannel(id: string, workspaceId: string, senderId: string, channelId: string, messageType: MessageType, threadRootId?: string): void;
+  insert(
+    id: string,
+    workspaceId: string,
+    senderId: string,
+    recipientId: string,
+    lastMessage: string,
+  ): void;
+  insertChannel(
+    id: string,
+    workspaceId: string,
+    senderId: string,
+    channelId: string,
+    messageType: MessageType,
+    lastMessage: string,
+    threadRootId?: string,
+  ): void;
   get(id: string): ConversationRow | undefined;
-  updateLastMessage(id: string, message: string): void;
   updateThreadRootId(id: string, threadRootId: string): void;
   purgeOlderThan(unixSec: number): number;
 }
 
 export function makeConversationsRepo(db: Database.Database): ConversationsRepo {
+  // `last_message` is captured inline at insert time so callers never issue
+  // a separate UPDATE that could silently hit zero rows. See finding C-1.
   const insertStmt = db.prepare(
-    "INSERT OR IGNORE INTO conversations (id, workspace_id, sender_id, recipient_id) VALUES (?, ?, ?, ?)",
+    "INSERT OR IGNORE INTO conversations (id, workspace_id, sender_id, recipient_id, last_message) VALUES (?, ?, ?, ?, ?)",
   );
   const insertChannelStmt = db.prepare(
-    "INSERT OR IGNORE INTO conversations (id, workspace_id, sender_id, recipient_id, message_type, channel_id, thread_root_id) VALUES (?, ?, ?, '', ?, ?, ?)",
+    "INSERT OR IGNORE INTO conversations (id, workspace_id, sender_id, recipient_id, message_type, channel_id, thread_root_id, last_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
   );
   const getStmt = db.prepare(
     "SELECT sender_id, recipient_id, last_message, message_type, channel_id, thread_root_id, workspace_id FROM conversations WHERE id = ?",
-  );
-  const updateLastMessageStmt = db.prepare(
-    "UPDATE conversations SET last_message = ? WHERE id = ?",
   );
   const updateThreadRootIdStmt = db.prepare(
     "UPDATE conversations SET thread_root_id = ? WHERE id = ?",
@@ -42,17 +54,23 @@ export function makeConversationsRepo(db: Database.Database): ConversationsRepo 
   );
 
   return {
-    insert(id, workspaceId, senderId, recipientId) {
-      insertStmt.run(id, workspaceId, senderId, recipientId);
+    insert(id, workspaceId, senderId, recipientId, lastMessage) {
+      insertStmt.run(id, workspaceId, senderId, recipientId, lastMessage);
     },
-    insertChannel(id, workspaceId, senderId, channelId, messageType, threadRootId) {
-      insertChannelStmt.run(id, workspaceId, senderId, messageType, channelId, threadRootId ?? null);
+    insertChannel(id, workspaceId, senderId, channelId, messageType, lastMessage, threadRootId) {
+      insertChannelStmt.run(
+        id,
+        workspaceId,
+        senderId,
+        "",
+        messageType,
+        channelId,
+        threadRootId ?? null,
+        lastMessage,
+      );
     },
     get(id) {
       return getStmt.get(id) as ConversationRow | undefined;
-    },
-    updateLastMessage(id, message) {
-      updateLastMessageStmt.run(message, id);
     },
     updateThreadRootId(id, threadRootId) {
       updateThreadRootIdStmt.run(threadRootId, id);
