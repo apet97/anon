@@ -19,7 +19,10 @@ const TWENTY_FOUR_HOURS_SEC = 24 * 60 * 60;
 const RATE_LIMITS_WINDOW_SEC = 60;
 const TARGET_LIMITS_WINDOW_SEC = 3600;
 
-const noopLogger = { info: (): void => {} };
+const noopLogger = {
+  info: (): void => {},
+  error: (): void => {},
+};
 
 interface TestCtx {
   db: Database.Database;

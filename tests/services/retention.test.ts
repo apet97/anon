@@ -16,7 +16,7 @@ describe("startRetentionScheduler", () => {
     const pendingReplies = { purgeOlderThan: vi.fn((_n: number) => 3) };
     const rateLimits = { purgeOlderThan: vi.fn((_n: number) => 4) };
     const targetLimits = { purgeOlderThan: vi.fn((_n: number) => 5) };
-    const logger = { info: vi.fn() };
+    const logger = { info: vi.fn(), error: vi.fn() };
     return { auditLog, conversations, pendingReplies, rateLimits, targetLimits, logger };
   };
 
@@ -81,6 +81,40 @@ describe("startRetentionScheduler", () => {
     expect(stubs.pendingReplies.purgeOlderThan).toHaveBeenCalledTimes(2);
     expect(stubs.rateLimits.purgeOlderThan).toHaveBeenCalledTimes(2);
     expect(stubs.targetLimits.purgeOlderThan).toHaveBeenCalledTimes(2);
+
+    handle.stop();
+  });
+
+  // H-4 regression: when one of the purge repos throws, the scheduler
+  // must catch the error, log it structurally, and keep ticking so the
+  // next cycle still runs.
+  it("catches purge errors and keeps scheduling", () => {
+    const stubs = makeStubs();
+    // First call to auditLog.purgeOlderThan throws; subsequent calls succeed.
+    stubs.auditLog.purgeOlderThan
+      .mockImplementationOnce(() => {
+        throw new Error("disk full");
+      })
+      .mockReturnValue(1);
+
+    const intervalMs = 1000;
+    const handle = startRetentionScheduler({
+      ...stubs,
+      now: () => 1_700_000_000_000,
+      intervalMs,
+    });
+
+    // Boot tick: error caught, scheduler alive.
+    expect(stubs.logger.error).toHaveBeenCalledTimes(1);
+    const [errPayload, errMsg] = stubs.logger.error.mock.calls[0]!;
+    expect(errPayload).toMatchObject({ err: "disk full" });
+    expect(errMsg).toBe("retention.purge failed");
+
+    // Next interval tick: auditLog.purgeOlderThan called a second time.
+    vi.advanceTimersByTime(intervalMs);
+    expect(stubs.auditLog.purgeOlderThan).toHaveBeenCalledTimes(2);
+    // And logger.info fires on the successful run.
+    expect(stubs.logger.info).toHaveBeenCalled();
 
     handle.stop();
   });

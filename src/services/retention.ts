@@ -16,7 +16,10 @@ export interface RetentionDeps {
   pendingReplies: { purgeOlderThan: (unixSec: number) => number };
   rateLimits: { purgeOlderThan: (unixSec: number) => number };
   targetLimits: { purgeOlderThan: (unixSec: number) => number };
-  logger: { info: (obj: object, msg?: string) => void };
+  logger: {
+    info: (obj: object, msg?: string) => void;
+    error: (obj: object, msg?: string) => void;
+  };
   now?: () => number;
   intervalMs?: number;
   auditLogRetentionSec?: number;
@@ -50,33 +53,54 @@ export function startRetentionScheduler(deps: RetentionDeps): RetentionHandle {
   const targetLimitsRetentionSec =
     deps.targetLimitsRetentionSec ?? DEFAULT_TARGET_LIMITS_RETENTION_SEC;
 
+  // H-4: a DB hiccup in any of the five purge calls must not crash the
+  // scheduler or skip future ticks. Wrap in try/catch and guard against
+  // re-entrant runs so a slow purge can't overlap with the next interval.
+  let isRunning = false;
   const runOnce = (): void => {
-    const nowSec = Math.floor(now() / 1000);
-    const auditLogDeleted = deps.auditLog.purgeOlderThan(
-      nowSec - auditLogRetentionSec,
-    );
-    const conversationsDeleted = deps.conversations.purgeOlderThan(
-      nowSec - conversationsRetentionSec,
-    );
-    const pendingRepliesDeleted = deps.pendingReplies.purgeOlderThan(
-      nowSec - pendingRepliesRetentionSec,
-    );
-    const rateLimitsDeleted = deps.rateLimits.purgeOlderThan(
-      nowSec - rateLimitsRetentionSec,
-    );
-    const targetLimitsDeleted = deps.targetLimits.purgeOlderThan(
-      nowSec - targetLimitsRetentionSec,
-    );
-    deps.logger.info(
-      {
-        audit_log: auditLogDeleted,
-        conversations: conversationsDeleted,
-        pending_replies: pendingRepliesDeleted,
-        rate_limits: rateLimitsDeleted,
-        target_limits: targetLimitsDeleted,
-      },
-      "retention.purge",
-    );
+    if (isRunning) {
+      deps.logger.info(
+        { skipped: "previous run still in flight" },
+        "retention.skip",
+      );
+      return;
+    }
+    isRunning = true;
+    try {
+      const nowSec = Math.floor(now() / 1000);
+      const auditLogDeleted = deps.auditLog.purgeOlderThan(
+        nowSec - auditLogRetentionSec,
+      );
+      const conversationsDeleted = deps.conversations.purgeOlderThan(
+        nowSec - conversationsRetentionSec,
+      );
+      const pendingRepliesDeleted = deps.pendingReplies.purgeOlderThan(
+        nowSec - pendingRepliesRetentionSec,
+      );
+      const rateLimitsDeleted = deps.rateLimits.purgeOlderThan(
+        nowSec - rateLimitsRetentionSec,
+      );
+      const targetLimitsDeleted = deps.targetLimits.purgeOlderThan(
+        nowSec - targetLimitsRetentionSec,
+      );
+      deps.logger.info(
+        {
+          audit_log: auditLogDeleted,
+          conversations: conversationsDeleted,
+          pending_replies: pendingRepliesDeleted,
+          rate_limits: rateLimitsDeleted,
+          target_limits: targetLimitsDeleted,
+        },
+        "retention.purge",
+      );
+    } catch (err) {
+      deps.logger.error(
+        { err: (err as Error).message },
+        "retention.purge failed",
+      );
+    } finally {
+      isRunning = false;
+    }
   };
 
   runOnce();
