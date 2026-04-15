@@ -81,7 +81,7 @@ async function main(): Promise<void> {
 
     const repos = makeRepos(db);
     const pendingRepliesRepo = makePendingRepliesRepo(db);
-    const auditLog = makeAuditLogRepo(db);
+    const auditLog = makeAuditLogRepo(db, logger);
 
     const rateLimit = makeRateLimitService({
       rateLimits: repos.rateLimits,

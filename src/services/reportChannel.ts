@@ -69,8 +69,11 @@ export function makeReportChannelService(
         },
         "failed to set up report channel",
       );
+      // H-1: thread the workspaceId through so per-workspace forensics
+      // actually work in the failure mode where it matters most.
       deps.auditLog?.record({
         eventType: "REPORT_CHANNEL_SETUP",
+        workspaceId,
         metadata: { outcome: "setup-failed", err: (err as Error).message },
       });
       return null;

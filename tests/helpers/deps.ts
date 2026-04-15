@@ -57,8 +57,8 @@ export function makeTestDeps(overrides: MakeTestDepsOverrides = {}): TestDeps {
   runMigrations(db, MIGRATIONS_DIR);
   const repos = makeRepos(db);
   const pendingRepliesRepo = makePendingRepliesRepo(db);
-  const auditLog = makeAuditLogRepo(db);
   const logger = makeTestLogger();
+  const auditLog = makeAuditLogRepo(db, logger);
   const rateLimit = makeRateLimitService({
     rateLimits: repos.rateLimits,
     targetLimits: repos.targetLimits,

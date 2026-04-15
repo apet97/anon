@@ -81,5 +81,8 @@ describe("reportChannel.getOrCreate", () => {
       );
     expect(setupRow).toBeDefined();
     expect(setupRow!.metadata_json).toContain('"err":"boom"');
+    // H-1 regression: the failure-path audit row must carry the workspaceId
+    // so per-workspace forensics actually work in the mode that matters most.
+    expect(setupRow!.workspace_id).toBe(WS);
   });
 });

@@ -1,5 +1,14 @@
 import type Database from "better-sqlite3";
 
+/**
+ * Minimal logger shape the audit repo uses to warn when a row is
+ * recorded without a workspaceId (finding H-1). Pino-compatible;
+ * TestLogger / pino-proper / `console` all satisfy this.
+ */
+export interface AuditLogRepoLogger {
+  warn: (obj: object, msg?: string) => void;
+}
+
 export interface AuditLogEntry {
   workspaceId?: string;
   eventType: string;
@@ -41,7 +50,10 @@ export interface AuditLogRepo {
 const DEFAULT_QUERY_LIMIT = 100;
 const MAX_QUERY_LIMIT = 1000;
 
-export function makeAuditLogRepo(db: Database.Database): AuditLogRepo {
+export function makeAuditLogRepo(
+  db: Database.Database,
+  logger?: AuditLogRepoLogger,
+): AuditLogRepo {
   const insertStmt = db.prepare(
     "INSERT INTO audit_log (workspace_id, event_type, actor_id, target_id, conv_id, metadata_json) " +
       "VALUES (?, ?, ?, ?, ?, ?)",
@@ -55,6 +67,15 @@ export function makeAuditLogRepo(db: Database.Database): AuditLogRepo {
 
   return {
     record(entry) {
+      if (!entry.workspaceId) {
+        // H-1: surface missing workspaceId as a warn so operators can find
+        // the offending caller. The row is still written — losing an audit
+        // entry is worse than a noisy log.
+        logger?.warn(
+          { eventType: entry.eventType, actorId: entry.actorId, convId: entry.convId },
+          "audit row missing workspaceId",
+        );
+      }
       insertStmt.run(
         entry.workspaceId ?? null,
         entry.eventType,
