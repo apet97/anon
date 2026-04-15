@@ -225,6 +225,97 @@ describe("anon_reply_modal submit", () => {
     expect(row!.conv_id).toBe("c1");
   });
 
+  // H-5 regression: hard-validation early-returns must clear the pending
+  // reply so the same stale state can't re-open the modal on retry.
+  // (The catch-block still leaves it — retry is correct for Pumble-API errors.)
+  describe("H-5: hard-validation early returns clear pending state", () => {
+    async function setPending(deps: ReturnType<typeof makeTestDeps>): Promise<void> {
+      await deps.pendingReplies.set("ws-1", "recipient-1", {
+        convId: "c1",
+        direction: "recipient",
+      });
+    }
+
+    it("clears pending on empty reply text", async () => {
+      const deps = makeTestDeps();
+      deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1", "original body");
+      await setPending(deps);
+      const handler = makeAnonReplyModalSubmit(deps);
+      const ctx = makeViewActionCtx({
+        userId: "recipient-1",
+        state: { values: { reply_block: { reply_text: { value: "   " } } } },
+      });
+      await handler(ctx as any);
+      expect(await deps.pendingReplies.get("ws-1", "recipient-1")).toBeUndefined();
+    });
+
+    it("clears pending on too-long reply text", async () => {
+      const deps = makeTestDeps();
+      deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1", "original body");
+      await setPending(deps);
+      const handler = makeAnonReplyModalSubmit(deps);
+      const ctx = makeViewActionCtx({
+        userId: "recipient-1",
+        state: { values: { reply_block: { reply_text: { value: "x".repeat(2001) } } } },
+      });
+      await handler(ctx as any);
+      expect(await deps.pendingReplies.get("ws-1", "recipient-1")).toBeUndefined();
+    });
+
+    it("clears pending when the referenced conversation is not found", async () => {
+      const deps = makeTestDeps();
+      // pending references a convId that never got inserted
+      await setPending(deps);
+      const handler = makeAnonReplyModalSubmit(deps);
+      const ctx = makeViewActionCtx({
+        userId: "recipient-1",
+        state: { values: { reply_block: { reply_text: { value: "hi" } } } },
+      });
+      await handler(ctx as any);
+      expect(await deps.pendingReplies.get("ws-1", "recipient-1")).toBeUndefined();
+    });
+
+    it("clears pending when a channel conversation is missing channel_id", async () => {
+      const deps = makeTestDeps();
+      deps.db
+        .prepare(
+          "INSERT INTO conversations (id, workspace_id, sender_id, recipient_id, message_type, channel_id) " +
+            "VALUES (?, ?, ?, '', 'channel', NULL)",
+        )
+        .run("c1", "ws-1", "sender-1");
+      await setPending(deps);
+      const handler = makeAnonReplyModalSubmit(deps);
+      const ctx = makeViewActionCtx({
+        userId: "recipient-1",
+        state: { values: { reply_block: { reply_text: { value: "hi" } } } },
+      });
+      await handler(ctx as any);
+      expect(await deps.pendingReplies.get("ws-1", "recipient-1")).toBeUndefined();
+    });
+
+    it("clears pending on DM self-reply", async () => {
+      const deps = makeTestDeps();
+      // Insert a conversation where the reply target (after direction flip)
+      // equals the pending user. With direction "recipient", reply goes to
+      // conv.sender_id. Set sender_id === the clicker so it's a self-reply.
+      deps.repos.conversations.insert(
+        "c1",
+        "ws-1",
+        "recipient-1",
+        "other-1",
+        "original body",
+      );
+      await setPending(deps);
+      const handler = makeAnonReplyModalSubmit(deps);
+      const ctx = makeViewActionCtx({
+        userId: "recipient-1",
+        state: { values: { reply_block: { reply_text: { value: "to myself" } } } },
+      });
+      await handler(ctx as any);
+      expect(await deps.pendingReplies.get("ws-1", "recipient-1")).toBeUndefined();
+    });
+  });
+
   it("keeps the pending row when postMessageToChannel throws", async () => {
     const deps = makeTestDeps();
     deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1", "original body");

@@ -51,6 +51,9 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
         { eventType: "REPLY", convId: pending.convId, outcome: "empty" },
         "reply submit empty",
       );
+      // H-5: hard-validation — clear the stale pending row so the next
+      // modal open doesn't loop on the same broken state.
+      await deps.pendingReplies.delete(workspaceId, userId);
       return;
     }
 
@@ -59,6 +62,7 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
         { eventType: "REPLY", convId: pending.convId, outcome: "too-long" },
         "reply submit too long",
       );
+      await deps.pendingReplies.delete(workspaceId, userId);
       return;
     }
 
@@ -68,6 +72,7 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
         { eventType: "REPLY", convId: pending.convId, outcome: "conv-not-found" },
         "reply submit for unknown conversation",
       );
+      await deps.pendingReplies.delete(workspaceId, userId);
       return;
     }
 
@@ -86,6 +91,8 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
         eventType: "REPLY", workspaceId, actorId: userId,
         convId: pending.convId, metadata: { outcome: "missing-channel-id" },
       });
+      // H-5: corrupt row — retry won't help; clear the pending state.
+      await deps.pendingReplies.delete(workspaceId, userId);
       return;
     }
 
@@ -100,6 +107,9 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
           { eventType: "REPLY", convId: pending.convId, outcome: "self-reply" },
           "reply submit self-targeting blocked",
         );
+        // H-5: self-reply is deterministic — retry with the same state
+        // will fail the same way. Clear the pending row.
+        await deps.pendingReplies.delete(workspaceId, userId);
         return;
       }
       if (deps.repos.blockedUsers.isBlocked(workspaceId, targetId)) {
