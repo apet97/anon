@@ -60,6 +60,25 @@ export function makeReportAnonHandler(deps: AppDeps): ReportAnonHandler {
       direction === "recipient" ? conv.sender_id : conv.recipient_id;
     const reporterId = ctx.payload.userId;
 
+    // H-3: a sender clicking Report on their own anonymous message would
+    // post their real identity into the admin channel, dox'ing themselves
+    // and polluting the admin queue. Ack, audit, and bail silently.
+    if (anonSenderId === reporterId) {
+      deps.logger.warn(
+        { eventType: "REPORT", convId, actorId: reporterId, outcome: "self-report" },
+        "self-report ignored",
+      );
+      deps.auditLog.record({
+        eventType: "REPORT",
+        workspaceId: ctx.payload.workspaceId,
+        actorId: reporterId,
+        convId,
+        metadata: { outcome: "self-report" },
+      });
+      await ctx.ack();
+      return;
+    }
+
     const client = await ctx.getBotClient();
     if (!client) {
       deps.logger.error(

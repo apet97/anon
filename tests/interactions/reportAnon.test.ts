@@ -99,6 +99,42 @@ describe("report_anon interaction", () => {
     expect(post.body.text).toContain("<@recipient-1>");
   });
 
+  // H-3 regression: a sender clicking Report on their own anonymous
+  // message must not post anything to the admin channel — otherwise the
+  // reporter dox'es themselves. The handler must still ack (returning
+  // HTTP 200) and write an audit row for visibility.
+  it("blocks self-reports without posting to the admin channel", async () => {
+    const deps = makeTestDeps();
+    deps.repos.conversations.insert("c1", WS, "sender-1", "recipient-1", "hello");
+    deps.repos.config.set(WS, REPORT_CHANNEL_CONFIG_KEY, "rc1");
+    const client = makeFakePumbleClient();
+    const handler = makeReportAnonHandler(deps);
+    // The original sender ("sender-1") is clicking Report with direction=sender,
+    // which would otherwise resolve anonSenderId to recipient_id. To get
+    // anonSenderId === reporterId we use direction=recipient so that
+    // anonSenderId = conv.sender_id === reporter userId.
+    const ctx = makeBlockInteractionCtx({
+      userId: "sender-1",
+      value: "c1:recipient",
+      botClient: client,
+    });
+
+    await handler(ctx as any);
+
+    expect(ctx.ackCalls).toBe(1);
+    expect(client.posts).toHaveLength(0);
+    const selfReportRow = deps.auditLog
+      .listRecent(10)
+      .find(
+        (r) =>
+          r.event_type === "REPORT" &&
+          (r.metadata_json ?? "").includes('"outcome":"self-report"'),
+      );
+    expect(selfReportRow).toBeDefined();
+    expect(selfReportRow!.actor_id).toBe("sender-1");
+    expect(selfReportRow!.conv_id).toBe("c1");
+  });
+
   it("writes an audit row with outcome=post-failed when posting the report throws", async () => {
     const deps = makeTestDeps();
     deps.repos.conversations.insert("c1", WS, "sender-1", "recipient-1", "hello");
