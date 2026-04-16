@@ -63,7 +63,19 @@ RUN mkdir -p /app/data && chown -R node:node /app
 
 EXPOSE 3000
 
+# nosemgrep: dockerfile.security.missing-user.missing-user
+# nosemgrep: yaml.dockerfile.security.missing-user.missing-user
+# Intentional: no trailing USER directive. Railway mounts the persistent
+# volume as root, so the container MUST start as root, then
+# `chown -R node:node /app/data`, then `exec su-exec node ...` drops
+# privileges before the main process runs. The effective runtime user
+# is `node`. See the comment above the `mkdir /app/data` line.
 ENTRYPOINT ["/sbin/tini", "--"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD wget -qO- http://localhost:3000/health || exit 1
-CMD ["sh", "-c", "chown -R node:node /app/data && exec su-exec node node dist/main.js"]
+# H-2: chmod 700 /app/data after chown so only the `node` user can read the
+# SQLite DB + WAL sidecars containing plaintext Pumble tokens. Matches the
+# "Tokens at rest" section in SECURITY.md.
+# nosemgrep: dockerfile.security.missing-user.missing-user
+# nosemgrep: yaml.dockerfile.security.missing-user.missing-user
+CMD ["sh", "-c", "chown -R node:node /app/data && chmod 700 /app/data && exec su-exec node node dist/main.js"]

@@ -25,6 +25,35 @@ message nor the raw message body.
   `APP_UNAUTHORIZED` deletes the relevant user row; `APP_UNINSTALLED` deletes
   every row for the workspace.
 
+## Tokens at rest (finding H-2)
+
+Bot JWTs and user JWTs are stored as plain `TEXT` in the `tokens` table. This
+is a deliberate, documented trade-off for the current deployment shape:
+
+- **Threat.** If the `/app/data/anon.db` file is exfiltrated (backup copied,
+  host compromised, mis-configured container mount), every stored token is
+  immediately reusable against Pumble's API until the operator rotates.
+- **What we do today.**
+  - The Dockerfile runs `chmod 700 /app/data` after the `chown node:node`
+    step so only the runtime user can read the DB and its WAL sidecars.
+  - `APP_UNAUTHORIZED` and `APP_UNINSTALLED` both delete the affected
+    `tokens` rows synchronously so a clean uninstall leaves no residue.
+  - The rotation checklist above is the documented incident response for
+    suspected token leakage.
+- **What we explicitly do not do yet.** Token encryption at rest. AES-256-GCM
+  with a `TOKEN_ENCRYPTION_KEY` env var (32 random bytes, base64-encoded)
+  would wrap every read/write inside `sqliteCredentialsStore` and protect
+  against DB-only exfiltration. This is planned before public marketplace
+  listing; see AUDIT.md finding H-2 Option B for the design sketch.
+- **Operational rules.**
+  - Never copy `/app/data/anon.db*` off the host for anything other than
+    an operator-initiated backup, and never to an untrusted location.
+  - If the host is compromised, treat every token as leaked: rotate the App
+    Key, OAuth Client Secret, and Signing Secret via the Pumble marketplace
+    (steps 1–4 above), then force a reinstall in every workspace.
+  - CI pipelines and container images must never receive the production
+    `/app/data` volume.
+
 ## Rotation checklist
 
 Use this whenever credentials may have been exposed (for example, if
