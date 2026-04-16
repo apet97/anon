@@ -9,14 +9,15 @@ export default defineConfig({
       reporter: ["text", "lcov"],
       include: ["src/**/*.ts"],
       exclude: ["src/main.ts", "**/*.d.ts"],
-      // Thresholds sit ~2–3pt below the 2026-04-12 measured baseline
-      // (stmts 88.7, branches 78.7, funcs 92.5, lines 89.1).
-      // Channel + thread error paths are the main uncovered branches.
+      // L-6: thresholds raised after the C-1/C-2/H-5 fixes landed.
+      // 2026-04-16 measured baseline: stmts 92.41, branches 81.08,
+      // functions 93.75, lines 92.96. Targets land just under the
+      // measured floor so small future fluctuations don't trip CI.
       thresholds: {
-        lines: 86,
-        branches: 76,
-        functions: 90,
-        statements: 86,
+        lines: 90,
+        branches: 80,
+        functions: 92,
+        statements: 90,
       },
     },
     // We deliberately avoid setupFiles that read process.env — each test
