@@ -14,10 +14,10 @@ function openEmptyDb() {
 }
 
 describe("migrator.runMigrations", () => {
-  it("applies all five migrations to a fresh database", () => {
+  it("applies all migrations to a fresh database", () => {
     const db = openEmptyDb();
     const result = runMigrations(db, MIGRATIONS_DIR);
-    expect(result.applied).toEqual(["001", "002", "003", "004", "005", "006", "007"]);
+    expect(result.applied).toEqual(["001", "002", "003", "004", "005", "006", "007", "008"]);
     expect(result.skipped).toEqual([]);
 
     // Verify every expected table exists
@@ -45,13 +45,58 @@ describe("migrator.runMigrations", () => {
     runMigrations(db, MIGRATIONS_DIR);
     const second = runMigrations(db, MIGRATIONS_DIR);
     expect(second.applied).toEqual([]);
-    expect(second.skipped).toEqual(["001", "002", "003", "004", "005", "006", "007"]);
+    expect(second.skipped).toEqual(["001", "002", "003", "004", "005", "006", "007", "008"]);
   });
 
   it("records every applied version in schema_migrations", () => {
     const db = openEmptyDb();
     runMigrations(db, MIGRATIONS_DIR);
-    expect(getAppliedVersions(db)).toEqual(["001", "002", "003", "004", "005", "006", "007"]);
+    expect(getAppliedVersions(db)).toEqual(["001", "002", "003", "004", "005", "006", "007", "008"]);
+  });
+
+  // H-6 regression: migration 008 enforces message_type via CHECK constraint.
+  it("conversations has a CHECK constraint on message_type", () => {
+    const db = openEmptyDb();
+    runMigrations(db, MIGRATIONS_DIR);
+    expect(() =>
+      db
+        .prepare(
+          "INSERT INTO conversations (id, workspace_id, sender_id, recipient_id, message_type) " +
+            "VALUES (?, ?, ?, ?, ?)",
+        )
+        .run("c1", "ws-1", "s1", "r1", "bogus"),
+    ).toThrow(/CHECK|constraint/i);
+  });
+
+  // H-6 regression: the three legal values still accept.
+  it("conversations accepts dm, channel and thread as message_type", () => {
+    const db = openEmptyDb();
+    runMigrations(db, MIGRATIONS_DIR);
+    const stmt = db.prepare(
+      "INSERT INTO conversations (id, workspace_id, sender_id, recipient_id, message_type) " +
+        "VALUES (?, ?, ?, ?, ?)",
+    );
+    stmt.run("c-dm", "ws-1", "s1", "r1", "dm");
+    stmt.run("c-ch", "ws-1", "s1", "", "channel");
+    stmt.run("c-th", "ws-1", "s1", "", "thread");
+    const rows = db
+      .prepare("SELECT message_type FROM conversations ORDER BY id")
+      .all() as Array<{ message_type: string }>;
+    expect(rows.map((r) => r.message_type).sort()).toEqual(["channel", "dm", "thread"]);
+  });
+
+  // M-8 regression: migration 005 created idx_conversations_created_at. When
+  // 008 rebuilds the conversations table, the index must be recreated or the
+  // retention range-DELETE falls back to a table scan.
+  it("preserves idx_conversations_created_at across the 008 rebuild", () => {
+    const db = openEmptyDb();
+    runMigrations(db, MIGRATIONS_DIR);
+    const indexes = db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='conversations'",
+      )
+      .all() as Array<{ name: string }>;
+    expect(indexes.map((i) => i.name)).toContain("idx_conversations_created_at");
   });
 
   it("pending_replies has a CHECK constraint on direction", () => {

@@ -20,7 +20,11 @@ export interface RetentionDeps {
     info: (obj: object, msg?: string) => void;
     error: (obj: object, msg?: string) => void;
   };
-  now?: () => number;
+  /**
+   * M-9: required. Returns current unix milliseconds. Production wires
+   * `() => Date.now()` once in main.ts; tests inject fake clocks.
+   */
+  now: () => number;
   intervalMs?: number;
   auditLogRetentionSec?: number;
   conversationsRetentionSec?: number;
@@ -40,7 +44,7 @@ const DEFAULT_RATE_LIMITS_RETENTION_SEC = 60;      // global window: 60s
 const DEFAULT_TARGET_LIMITS_RETENTION_SEC = 3600;  // per-pair window: 1h
 
 export function startRetentionScheduler(deps: RetentionDeps): RetentionHandle {
-  const now = deps.now ?? ((): number => Date.now());
+  const now = deps.now;
   const intervalMs = deps.intervalMs ?? DEFAULT_INTERVAL_MS;
   const auditLogRetentionSec =
     deps.auditLogRetentionSec ?? DEFAULT_NINETY_DAYS_SEC;

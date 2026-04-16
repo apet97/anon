@@ -62,7 +62,9 @@ export function makeTestDeps(overrides: MakeTestDepsOverrides = {}): TestDeps {
   const rateLimit = makeRateLimitService({
     rateLimits: repos.rateLimits,
     targetLimits: repos.targetLimits,
-    ...(overrides.now ? { now: overrides.now } : {}),
+    // M-9: now is always provided. Tests that want frozen/advancing time
+    // pass `overrides.now`; the default matches production semantics.
+    now: overrides.now ?? (() => Math.floor(Date.now() / 1000)),
   });
   const anonMessage = makeAnonMessageService({ logger });
   const reportChannel = makeReportChannelService({

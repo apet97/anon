@@ -2,10 +2,10 @@ import * as path from "path";
 import { start } from "pumble-sdk";
 import { loadConfig } from "./config";
 import { openDb } from "./db/connection";
+import { getAppliedVersions } from "./db/migrations/migrator";
 import { makeRepos } from "./db/repos";
 import { makePendingRepliesRepo } from "./db/repos/pendingRepliesRepo";
 import { makeAuditLogRepo } from "./db/repos/auditLogRepo";
-import { runMigrations } from "./db/migrations/migrator";
 import { makeLogger } from "./logger";
 import { makeRateLimitService } from "./services/rateLimit";
 import { makeAnonMessageService } from "./services/anonMessage";
@@ -68,24 +68,22 @@ async function main(): Promise<void> {
       "anon bootstrap",
     );
 
-    const db = openDb(config.databasePath);
+    // openDb now runs the migrator itself (finding M-8); no separate call.
     const migrationsDir = path.resolve(__dirname, "db/migrations");
-    const migrationResult = runMigrations(db, migrationsDir);
-    logger.info(
-      {
-        migrationsApplied: migrationResult.applied,
-        migrationsSkipped: migrationResult.skipped,
-      },
-      "migrations complete",
-    );
+    const db = openDb(config.databasePath, migrationsDir);
+    logger.info({ migrationsDir }, "database opened");
 
     const repos = makeRepos(db);
     const pendingRepliesRepo = makePendingRepliesRepo(db);
     const auditLog = makeAuditLogRepo(db, logger);
 
+    // M-9: `now` is required on both services so a future test can't
+    // silently fall back to wall-clock time. Production wires Date.now here
+    // once (rateLimit expects seconds, retention expects milliseconds).
     const rateLimit = makeRateLimitService({
       rateLimits: repos.rateLimits,
       targetLimits: repos.targetLimits,
+      now: () => Math.floor(Date.now() / 1000),
     });
     const anonMessage = makeAnonMessageService({ logger });
     const reportChannel = makeReportChannelService({
@@ -98,16 +96,18 @@ async function main(): Promise<void> {
 
     // Record startup in the audit log so we can confirm cold-start
     // behaviour from historical data.
+    const appliedVersions = getAppliedVersions(db);
     auditLog.record({
       eventType: "STARTUP",
       metadata: {
         nodeEnv: config.nodeEnv,
-        migrationsApplied: migrationResult.applied.length,
+        schemaVersions: appliedVersions,
       },
     });
 
     // Kick off periodic retention purges. The handle is captured so the
     // SIGTERM/SIGINT path below can stop the interval cleanly.
+    // M-9: `now` is required; wall-clock ms.
     const retention = startRetentionScheduler({
       auditLog,
       conversations: repos.conversations,
@@ -115,6 +115,7 @@ async function main(): Promise<void> {
       rateLimits: repos.rateLimits,
       targetLimits: repos.targetLimits,
       logger,
+      now: () => Date.now(),
     });
 
     installShutdownHandlers({ retention, db, logger });

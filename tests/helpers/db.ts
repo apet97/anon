@@ -1,6 +1,5 @@
 import * as path from "path";
 import { openInMemoryDb } from "../../src/db/connection";
-import { runMigrations } from "../../src/db/migrations/migrator";
 import { makeRepos, type Repos } from "../../src/db/repos";
 import type Database from "better-sqlite3";
 
@@ -12,8 +11,10 @@ export interface TestDb {
 }
 
 export function makeTestDb(): TestDb {
-  const db = openInMemoryDb();
-  runMigrations(db, MIGRATIONS_DIR);
+  // M-8: openInMemoryDb runs the migrator itself now. We pass the src
+  // migrations dir explicitly because the test runs from source without
+  // going through the dist/ copy.
+  const db = openInMemoryDb(MIGRATIONS_DIR);
   const repos = makeRepos(db);
   return { db, repos };
 }

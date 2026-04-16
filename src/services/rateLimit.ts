@@ -14,11 +14,17 @@ export interface RateLimitService {
 export interface RateLimitDeps {
   rateLimits: RateLimitsRepo;
   targetLimits: TargetLimitsRepo;
-  now?: () => number;
+  /**
+   * M-9: required. Returns current unix seconds. Production wires
+   * `() => Math.floor(Date.now() / 1000)` once in main.ts; tests inject
+   * fixed or advancing clocks. Dropping the fallback makes it impossible
+   * for a future test to silently read wall-clock time.
+   */
+  now: () => number;
 }
 
 export function makeRateLimitService(deps: RateLimitDeps): RateLimitService {
-  const nowFn = deps.now ?? (() => Math.floor(Date.now() / 1000));
+  const nowFn = deps.now;
 
   return {
     checkGlobal(workspaceId, userId, nowSec) {
