@@ -225,6 +225,99 @@ describe("anon_reply_modal submit", () => {
     expect(row!.conv_id).toBe("c1");
   });
 
+  // M-6 regression: every reply-modal early return must write an audit
+  // row so the audit table is a complete record of every rejection reason.
+  // These tests extend the H-5 describe block to also check metadata.outcome.
+  describe("M-6: hard-validation early returns write audit rows", () => {
+    async function setPending(deps: ReturnType<typeof makeTestDeps>): Promise<void> {
+      await deps.pendingReplies.set("ws-1", "recipient-1", {
+        convId: "c1",
+        direction: "recipient",
+      });
+    }
+
+    function findReplyRow(
+      deps: ReturnType<typeof makeTestDeps>,
+      outcome: string,
+    ) {
+      return deps.auditLog
+        .listRecent(10)
+        .find(
+          (r) =>
+            r.event_type === "REPLY" &&
+            (r.metadata_json ?? "").includes(`"outcome":"${outcome}"`),
+        );
+    }
+
+    it("audits no-pending when the modal opens without state", async () => {
+      const deps = makeTestDeps();
+      const handler = makeAnonReplyModalSubmit(deps);
+      const ctx = makeViewActionCtx({
+        userId: "u1",
+        state: { values: { reply_block: { reply_text: { value: "hi" } } } },
+      });
+      await handler(ctx as any);
+      expect(findReplyRow(deps, "no-pending")).toBeDefined();
+    });
+
+    it("audits empty on whitespace-only reply", async () => {
+      const deps = makeTestDeps();
+      deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1", "original body");
+      await setPending(deps);
+      const handler = makeAnonReplyModalSubmit(deps);
+      const ctx = makeViewActionCtx({
+        userId: "recipient-1",
+        state: { values: { reply_block: { reply_text: { value: "   " } } } },
+      });
+      await handler(ctx as any);
+      expect(findReplyRow(deps, "empty")).toBeDefined();
+    });
+
+    it("audits too-long on oversized reply", async () => {
+      const deps = makeTestDeps();
+      deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1", "original body");
+      await setPending(deps);
+      const handler = makeAnonReplyModalSubmit(deps);
+      const ctx = makeViewActionCtx({
+        userId: "recipient-1",
+        state: { values: { reply_block: { reply_text: { value: "x".repeat(2001) } } } },
+      });
+      await handler(ctx as any);
+      expect(findReplyRow(deps, "too-long")).toBeDefined();
+    });
+
+    it("audits conv-not-found on orphan pending row", async () => {
+      const deps = makeTestDeps();
+      await setPending(deps);
+      const handler = makeAnonReplyModalSubmit(deps);
+      const ctx = makeViewActionCtx({
+        userId: "recipient-1",
+        state: { values: { reply_block: { reply_text: { value: "hi" } } } },
+      });
+      await handler(ctx as any);
+      expect(findReplyRow(deps, "conv-not-found")).toBeDefined();
+    });
+
+    it("audits self-reply on DM targeting yourself", async () => {
+      const deps = makeTestDeps();
+      deps.repos.conversations.insert(
+        "c1",
+        "ws-1",
+        "recipient-1",
+        "other-1",
+        "original body",
+      );
+      await setPending(deps);
+      const handler = makeAnonReplyModalSubmit(deps);
+      const ctx = makeViewActionCtx({
+        userId: "recipient-1",
+        state: { values: { reply_block: { reply_text: { value: "to myself" } } } },
+      });
+      await handler(ctx as any);
+      expect(findReplyRow(deps, "self-reply")).toBeDefined();
+    });
+  });
+
   // H-5 regression: hard-validation early-returns must clear the pending
   // reply so the same stale state can't re-open the modal on retry.
   // (The catch-block still leaves it — retry is correct for Pumble-API errors.)

@@ -38,6 +38,13 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
         { eventType: "REPLY", actorId: userId, outcome: "no-pending" },
         "reply submit without pending state",
       );
+      // M-6: audit every rejection reason so the table is a complete log.
+      deps.auditLog.record({
+        eventType: "REPLY",
+        workspaceId,
+        actorId: userId,
+        metadata: { outcome: "no-pending" },
+      });
       return;
     }
 
@@ -51,6 +58,13 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
         { eventType: "REPLY", convId: pending.convId, outcome: "empty" },
         "reply submit empty",
       );
+      deps.auditLog.record({
+        eventType: "REPLY",
+        workspaceId,
+        actorId: userId,
+        convId: pending.convId,
+        metadata: { outcome: "empty" },
+      });
       // H-5: hard-validation — clear the stale pending row so the next
       // modal open doesn't loop on the same broken state.
       await deps.pendingReplies.delete(workspaceId, userId);
@@ -62,6 +76,13 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
         { eventType: "REPLY", convId: pending.convId, outcome: "too-long" },
         "reply submit too long",
       );
+      deps.auditLog.record({
+        eventType: "REPLY",
+        workspaceId,
+        actorId: userId,
+        convId: pending.convId,
+        metadata: { outcome: "too-long" },
+      });
       await deps.pendingReplies.delete(workspaceId, userId);
       return;
     }
@@ -74,6 +95,13 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
         { eventType: "REPLY", convId: pending.convId, outcome: "conv-not-found" },
         "reply submit for unknown conversation",
       );
+      deps.auditLog.record({
+        eventType: "REPLY",
+        workspaceId,
+        actorId: userId,
+        convId: pending.convId,
+        metadata: { outcome: "conv-not-found" },
+      });
       await deps.pendingReplies.delete(workspaceId, userId);
       return;
     }
@@ -109,6 +137,13 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
           { eventType: "REPLY", convId: pending.convId, outcome: "self-reply" },
           "reply submit self-targeting blocked",
         );
+        deps.auditLog.record({
+          eventType: "REPLY",
+          workspaceId,
+          actorId: userId,
+          convId: pending.convId,
+          metadata: { outcome: "self-reply" },
+        });
         // H-5: self-reply is deterministic — retry with the same state
         // will fail the same way. Clear the pending row.
         await deps.pendingReplies.delete(workspaceId, userId);
