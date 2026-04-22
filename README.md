@@ -48,7 +48,7 @@ No one sees the sender unless someone clicks Report.
 - **Durable state** — SQLite-backed with WAL, atomic rate-limit transactions, a forward-only migration runner, and a reply modal flow that **survives a process restart**
 - **Signed webhooks** — every inbound request verified via HMAC-SHA256 against Pumble's signing secret (SDK default)
 - **Observability** — `pino` structured logging with strict PII redaction, `/health` liveness + readiness probes, and a 90-day retention scheduler that purges audit logs, conversations, and pending replies on a 6-hour cadence
-- **Production-ready** — two-stage `node:24.14-alpine` Docker image running as non-root under `tini`, persistent volume mount at `/app/data`, CI matrix on Node 20 + 22 with coverage gating, Docker build smoke test
+- **Container image** — two-stage `node:24.14-alpine` Docker image running as non-root under `tini`, persistent volume mount at `/app/data`, CI matrix on Node 20 + 22 with coverage gating, Docker build smoke test
 
 ---
 
@@ -229,8 +229,6 @@ No `messages:read` — Anon never reads workspace messages. No `reaction:read` �
 - [**`docs/SPEC.md`**](./docs/SPEC.md) — architecture, tables, trigger matrix, PII rules
 - [**`docs/PRIVACY.md`**](./docs/PRIVACY.md) — privacy policy (published at [apet97.github.io/anon/PRIVACY](https://apet97.github.io/anon/PRIVACY))
 - [**`SECURITY.md`**](./SECURITY.md) — secrets policy, threat model, rotation checklist
-- [**`CLAUDE.md`**](./CLAUDE.md) — contributor guide with Pumble SDK gotchas
-- [**`AGENTS.md`**](./AGENTS.md) — instructions for automated coding agents
 
 ---
 
