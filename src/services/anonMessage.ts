@@ -4,7 +4,7 @@ import type { ReplyDirection } from "./pendingReplies";
 
 export const MAX_MESSAGE_LENGTH = 2000;
 
-function buildAnonBlocks(label: string, messageText: string, convId: string, direction: string) {
+function buildAnonBlocks(label: string, messageText: string, convId: string, direction: string, replyLabel = "Reply Anonymously") {
   return [
     {
       type: "rich_text" as const,
@@ -30,7 +30,7 @@ function buildAnonBlocks(label: string, messageText: string, convId: string, dir
           type: "button" as const,
           onAction: "reply_anon",
           value: `${convId}:${direction}`,
-          text: { type: "plain_text" as const, text: "Reply Anonymously" },
+          text: { type: "plain_text" as const, text: replyLabel },
           style: "primary" as const,
         },
         {
@@ -106,7 +106,7 @@ export function makeAnonMessageService(deps: AnonMessageDeps): AnonMessageServic
     async sendToChannel({ client, channelId, messageText, convId }) {
       const msg = await client.v1.messages.postMessageToChannel(channelId, {
         text: `Anonymous: ${messageText}`,
-        blocks: buildAnonBlocks("Anonymous", messageText, convId, "recipient"),
+        blocks: buildAnonBlocks("Anonymous", messageText, convId, "recipient", "Reply Anonymously in Thread"),
       });
       return msg?.id ?? null;
     },
@@ -114,7 +114,7 @@ export function makeAnonMessageService(deps: AnonMessageDeps): AnonMessageServic
     async replyInThread({ client, threadRootId, channelId, messageText, convId }) {
       await client.v1.messages.reply(threadRootId, channelId, {
         text: `Anonymous: ${messageText}`,
-        blocks: buildAnonBlocks("Anonymous", messageText, convId, "recipient"),
+        blocks: buildAnonBlocks("Anonymous", messageText, convId, "recipient", "Reply Anonymously in Thread"),
       });
       return true;
     },

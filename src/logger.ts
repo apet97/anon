@@ -1,4 +1,5 @@
 import pino from "pino";
+import type { LogLevel } from "./config";
 
 /**
  * Central pino logger with redaction rules tight enough to prevent
@@ -16,8 +17,7 @@ import pino from "pino";
  * first.
  */
 export type Logger = pino.Logger;
-
-export type LogLevel = "fatal" | "error" | "warn" | "info" | "debug" | "trace";
+export type { LogLevel };
 
 export interface LoggerDeps {
   level?: LogLevel;

@@ -110,4 +110,37 @@ describe("APP_UNAUTHORIZED lifecycle cleanup", () => {
       recent.filter((r) => r.event_type === "APP_UNAUTHORIZED"),
     ).toHaveLength(1);
   });
+
+  it("skips cleanup but still audits when workspaceUserId is missing", async () => {
+    const deps = makeTestDeps({ useSqlitePendingReplies: true });
+    await deps.credentialsStore.saveTokens({
+      workspaceId: "ws-1",
+      userId: "u1",
+      botId: "bot-1",
+      accessToken: "u-jwt",
+      botToken: "b-jwt",
+    });
+
+    const handler = makeAppUnauthorizedHandler(deps);
+    // body.workspaceUser absent → workspaceUserId is undefined → guard skips cleanup
+    await handler(makeEventCtx({ workspaceId: "ws-1", body: {} }));
+
+    // Token must survive
+    expect(await deps.credentialsStore.getBotToken("ws-1")).toBe("b-jwt");
+    // Audit row still written for observability
+    expect(
+      deps.auditLog.listRecent(10).filter((r) => r.event_type === "APP_UNAUTHORIZED"),
+    ).toHaveLength(1);
+  });
+
+  it("skips cleanup but still audits when workspaceId is missing", async () => {
+    const deps = makeTestDeps();
+
+    const handler = makeAppUnauthorizedHandler(deps);
+    await handler(makeEventCtx({ body: { workspaceUser: "u1" } }));
+
+    expect(
+      deps.auditLog.listRecent(10).filter((r) => r.event_type === "APP_UNAUTHORIZED"),
+    ).toHaveLength(1);
+  });
 });

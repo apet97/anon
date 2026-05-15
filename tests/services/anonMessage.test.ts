@@ -31,6 +31,7 @@ describe("anonMessage.send", () => {
       onAction: "reply_anon",
       value: "c1:recipient",
       style: "primary",
+      text: { text: "Reply Anonymously" },
     });
     expect(actionsBlock.elements[1]).toMatchObject({
       onAction: "report_anon",
@@ -58,6 +59,11 @@ describe("anonMessage.sendToChannel", () => {
     expect(client.channelPosts).toHaveLength(1);
     expect(client.channelPosts[0]!.channelId).toBe("ch-general");
     expect(client.channelPosts[0]!.body.text).toBe("Anonymous: hello channel");
+    const actionsBlock = client.channelPosts[0]!.body.blocks.find((b: any) => b.type === "actions");
+    expect(actionsBlock.elements[0]).toMatchObject({
+      onAction: "reply_anon",
+      text: { text: "Reply Anonymously in Thread" },
+    });
   });
 });
 
@@ -80,5 +86,10 @@ describe("anonMessage.replyInThread", () => {
     expect(client.threadReplies).toHaveLength(1);
     expect(client.threadReplies[0]!.threadRootId).toBe("root-1");
     expect(client.threadReplies[0]!.channelId).toBe("ch-general");
+    const actionsBlock = client.threadReplies[0]!.body.blocks.find((b: any) => b.type === "actions");
+    expect(actionsBlock.elements[0]).toMatchObject({
+      onAction: "reply_anon",
+      text: { text: "Reply Anonymously in Thread" },
+    });
   });
 });

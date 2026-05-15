@@ -192,6 +192,13 @@ export function makeAnonReplyModalSubmit(deps: AppDeps): ModalHandler {
         { eventType: "REPLY", convId: pending.convId, outcome: "no-bot-client" },
         "reply submit with no bot client",
       );
+      deps.auditLog.record({
+        eventType: "REPLY",
+        workspaceId,
+        actorId: userId,
+        convId: pending.convId,
+        metadata: { outcome: "no-bot-client" },
+      });
       return;
     }
 

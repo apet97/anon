@@ -23,4 +23,3 @@ export function makeRepos(db: Database.Database): Repos {
   };
 }
 
-export type { ConversationsRepo, BlockedUsersRepo, RateLimitsRepo, TargetLimitsRepo, ConfigRepo };

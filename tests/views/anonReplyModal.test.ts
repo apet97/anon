@@ -409,6 +409,31 @@ describe("anon_reply_modal submit", () => {
     });
   });
 
+  it("writes a no-bot-client audit row when getBotClient returns undefined", async () => {
+    const deps = makeTestDeps();
+    deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1", "original body");
+    await deps.pendingReplies.set("ws-1", "recipient-1", {
+      convId: "c1",
+      direction: "recipient",
+    });
+    const handler = makeAnonReplyModalSubmit(deps);
+    const ctx = makeViewActionCtx({
+      userId: "recipient-1",
+      state: { values: { reply_block: { reply_text: { value: "hi" } } } },
+      botClient: undefined,
+    });
+
+    await handler(ctx as any);
+
+    expect(ctx.ackCalls).toBe(1);
+    const row = deps.auditLog
+      .listRecent(10)
+      .find((r) => (r.metadata_json ?? "").includes('"outcome":"no-bot-client"'));
+    expect(row).toBeDefined();
+    expect(row!.actor_id).toBe("recipient-1");
+    expect(row!.conv_id).toBe("c1");
+  });
+
   it("keeps the pending row when postMessageToChannel throws", async () => {
     const deps = makeTestDeps();
     deps.repos.conversations.insert("c1", "ws-1", "sender-1", "recipient-1", "original body");
