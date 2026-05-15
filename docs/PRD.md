@@ -1,6 +1,6 @@
 # Anon PRD
 
-**Status:** draft v2  
+**Status:** v2 (production)  
 **Date:** 2026-04-08  
 **Audience:** stakeholders, workspace admins, engineering
 

@@ -1,30 +1,12 @@
 # Anon Technical Specification
 
-**Status:** draft v2  
+**Status:** v2 (production)  
 **Date:** 2026-04-08  
 **Audience:** engineers and operators  
-**Current runtime:** Node + TypeScript prototype  
-**Current dependencies:** `pumble-sdk@0.0.29`, `pumble-cli@0.0.29`  
-**Target published versions verified on 2026-04-08:** `pumble-sdk@1.1.1`, `pumble-cli@1.1.1`
+**Runtime:** Node 20+ (LTS), TypeScript strict mode  
+**Dependencies:** `pumble-sdk@1.1.1`, `pumble-cli@1.1.1`
 
-This document describes the target production architecture for Anon and the migration path from the current prototype. It intentionally reflects the verified current state of the repo rather than the stale assumptions in earlier notes.
-
-## 1. Verified Current State
-
-The following facts were confirmed directly from the working tree:
-
-- The app implementation lives entirely in [`src/main.ts`](../src/main.ts).
-- The current prototype already uses SQLite through `better-sqlite3`.
-- Existing persisted tables today are:
-  - `conversations`
-  - `blocked_users`
-  - `rate_limits`
-  - `target_limits`
-  - `config`
-- The only clearly ephemeral conversation state today is `pendingReplies`, which is an in-memory `Map`.
-- The report flow exists in code, including private-channel creation and admin invitation, but has not been verified in production.
-- `tokens.json` contains live JWT-bearing credentials for workspace `64ad1305c701cc5be7c26fe4`.
-- The folder `/Users/15x/Downloads/WORKING/addons-me/abot` is not a standalone repo. It is nested inside the parent git repo `/Users/15x/Downloads/WORKING`, whose remote is unrelated to the target `apet97/anon` repo.
+This document describes the production architecture for Anon. The refactor from a single-file prototype is complete; all goals in Section 2 have been achieved.
 
 ## 2. Goals for the Technical Refactor
 

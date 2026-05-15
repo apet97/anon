@@ -30,7 +30,7 @@ Anon is a context-aware Pumble bot. One command — `/anon` — does three diffe
 
 Every anonymous message carries two buttons:
 
-- **Reply Anonymously** — opens a modal; the reply routes back through the same channel (DM, channel, or thread) without revealing who you are
+- **Reply Anonymously** (on DMs) / **Reply Anonymously in Thread** (on channel and thread posts) — opens a modal; the reply is posted back anonymously via the same path without revealing who you are
 - **Report** — posts the message to an auto-created private `#abot-reports` channel with the original sender's identity revealed to every workspace OWNER and ADMIN
 
 No one sees the sender unless someone clicks Report.
@@ -159,7 +159,6 @@ src/
 │   └── parseRecipient.ts     <<@USER_ID>> mention parsing
 ├── db/
 │   ├── connection.ts         WAL, busy_timeout, synchronous=NORMAL, 10MB WAL cap
-│   ├── schema.ts             Baseline CREATE IF NOT EXISTS
 │   ├── migrations/           Forward-only .sql runner tracked in schema_migrations
 │   └── repos/                One file per table — atomic rate-limit transactions
 ├── tokens/                   SqliteCredentialsStore (7-method SDK contract)

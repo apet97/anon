@@ -17,7 +17,7 @@ describe("migrator.runMigrations", () => {
   it("applies all migrations to a fresh database", () => {
     const db = openEmptyDb();
     const result = runMigrations(db, MIGRATIONS_DIR);
-    expect(result.applied).toEqual(["001", "002", "003", "004", "005", "006", "007", "008"]);
+    expect(result.applied).toEqual(["001", "002", "003", "004", "005", "006", "007", "008", "009"]);
     expect(result.skipped).toEqual([]);
 
     // Verify every expected table exists
@@ -45,13 +45,13 @@ describe("migrator.runMigrations", () => {
     runMigrations(db, MIGRATIONS_DIR);
     const second = runMigrations(db, MIGRATIONS_DIR);
     expect(second.applied).toEqual([]);
-    expect(second.skipped).toEqual(["001", "002", "003", "004", "005", "006", "007", "008"]);
+    expect(second.skipped).toEqual(["001", "002", "003", "004", "005", "006", "007", "008", "009"]);
   });
 
   it("records every applied version in schema_migrations", () => {
     const db = openEmptyDb();
     runMigrations(db, MIGRATIONS_DIR);
-    expect(getAppliedVersions(db)).toEqual(["001", "002", "003", "004", "005", "006", "007", "008"]);
+    expect(getAppliedVersions(db)).toEqual(["001", "002", "003", "004", "005", "006", "007", "008", "009"]);
   });
 
   // H-6 regression: migration 008 enforces message_type via CHECK constraint.

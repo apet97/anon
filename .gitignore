@@ -21,6 +21,10 @@ tokens.json
 how-it-was-built/
 prompts/
 
+# Session / agent state
+.remember/
+.claude/
+
 # Editor / OS junk
 .DS_Store
 .idea/
